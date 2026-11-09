@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AeroTwin C3 — Universal HVAC 3D Digital Twin & ESP32-C3 Command Center</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            obsidian: '#070B12',
+            panel: '#0D131F',
+            emerald: {
+              450: '#10B981',
+              550: '#059669'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Fira Code', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/styles.css" />
+  <!-- Three.js & OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body class="bg-obsidian text-slate-100 font-sans antialiased selection:bg-emerald-500 selection:text-black overflow-hidden h-screen flex flex-col">
+
+  <!-- TOP HEADER BAR -->
+  <header class="h-14 border-b border-slate-800/80 bg-panel/90 backdrop-blur-md px-4 flex items-center justify-between z-30 shrink-0">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center shadow-inner">
+        <span class="font-mono font-bold text-emerald-400 text-sm">C3</span>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-bold text-sm md:text-base tracking-tight text-white">AeroTwin <span class="text-emerald-400 font-mono text-xs px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-700/50">v2.4-SUPERMINI</span></h1>
+          <span class="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded-full">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+            MQTT ONLINE (42ms)
+          </span>
+        </div>
+        <p class="text-[11px] text-slate-400 hidden sm:block">Universal HVAC 3D Digital Twin & Hardware Telemetry Interface</p>
+      </div>
+    </div>
+
+    <!-- AC Architecture Selector (Desktop Center) -->
+    <div class="hidden lg:flex items-center bg-slate-900/90 p-1 rounded-lg border border-slate-800">
+      <button onclick="window.AeroApp.setAcType('split')" id="btn-type-split" class="ac-type-btn active px-3 py-1 rounded-md text-xs font-medium transition-all">Wall Split</button>
+      <button onclick="window.AeroApp.setAcType('cassette')" id="btn-type-cassette" class="ac-type-btn px-3 py-1 rounded-md text-xs font-medium transition-all">4-Way Cassette</button>
+      <button onclick="window.AeroApp.setAcType('crac')" id="btn-type-crac" class="ac-type-btn px-3 py-1 rounded-md text-xs font-medium transition-all">Data Center CRAC</button>
+      <button onclick="window.AeroApp.setAcType('vrf')" id="btn-type-vrf" class="ac-type-btn px-3 py-1 rounded-md text-xs font-medium transition-all">Central VRF Duct</button>
+    </div>
+
+    <!-- Right Actions & ESP32-C3 Setup Trigger -->
+    <div class="flex items-center gap-2">
+      <div class="hidden md:flex flex-col items-end mr-2 font-mono text-[11px]">
+        <span class="text-slate-300">NODE: <strong class="text-emerald-400">ESP32C3-POP-04</strong></span>
+        <span class="text-slate-400">RSSI: -58 dBm |HEAP: 184 KB</span>
+      </div>
+      <button onclick="window.AeroApp.toggleSetupModal(true)" class="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs px-3.5 py-2 rounded-lg shadow-lg shadow-emerald-500/10 transition-all cursor-pointer">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>Setup ESP32-C3</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN WORKSPACE -->
+  <div class="flex-1 flex relative overflow-hidden">
+
+    <!-- LEFT SIDEBAR: SENSOR TELEMETRY & ECO-AI SUSTAINABILITY -->
+    <aside id="panel-telemetry" class="w-full md:w-80 lg:w-88 border-r border-slate-800/80 bg-panel/85 backdrop-blur-md z-20 flex flex-col justify-between overflow-y-auto p-4 space-y-4 absolute md:static inset-0 hidden md:flex">
+      <div class="space-y-4">
+        <!-- Mobile AC Type Selector -->
+        <div class="lg:hidden">
+          <label class="text-[11px] font-mono uppercase text-slate-400 block mb-1.5">Pilih Arsitektur Unit 3D</label>
+          <div class="grid grid-cols-2 gap-1.5 bg-slate-900 p-1.5 rounded-lg border border-slate-800">
+            <button onclick="window.AeroApp.setAcType('split')" class="ac-type-btn-mobile px-2 py-1.5 rounded text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Wall Split</button>
+            <button onclick="window.AeroApp.setAcType('cassette')" class="ac-type-btn-mobile px-2 py-1.5 rounded text-xs font-medium text-slate-400">4-Way Cassette</button>
+            <button onclick="window.AeroApp.setAcType('crac')" class="ac-type-btn-mobile px-2 py-1.5 rounded text-xs font-medium text-slate-400">CRAC Server</button>
+            <button onclick="window.AeroApp.setAcType('vrf')" class="ac-type-btn-mobile px-2 py-1.5 rounded text-xs font-medium text-slate-400">Central VRF</button>
+          </div>
+        </div>
+
+        <!-- Thermal Delta-T Block -->
+        <div class="glass-card p-3.5 rounded-xl border border-slate-800/90 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+              Termodinamika ($\Delta T$ Evaporator)
+            </span>
+            <span id="badge-cop" class="font-mono text-[11px] px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800/60">COP: 3.85</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 text-center font-mono">
+            <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-800">
+              <div class="text-[10px] text-slate-400">RETURN IN</div>
+              <div id="val-temp-in" class="text-base font-bold text-amber-400 mt-0.5">26.8°C</div>
+            </div>
+            <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-800">
+              <div class="text-[10px] text-slate-400">SUPPLY OUT</div>
+              <div id="val-temp-out" class="text-base font-bold text-cyan-400 mt-0.5">14.2°C</div>
+            </div>
+            <div class="bg-emerald-950/40 p-2 rounded-lg border border-emerald-700/40">
+              <div class="text-[10px] text-emerald-300">DELTA $\Delta T$</div>
+              <div id="val-delta-t" class="text-base font-bold text-emerald-400 mt-0.5">12.6°C</div>
+            </div>
+          </div>
+
+          <div class="flex justify-between items-center text-xs text-slate-400 pt-1 border-t border-slate-800/60 font-mono">
+            <span>Kelembapan Relatif (RH): <strong id="val-rh" class="text-slate-200">54%</strong></span>
+            <span>Titik Embun: <strong id="val-dew" class="text-cyan-300">16.4°C</strong></span>
+          </div>
+        </div>
+
+        <!-- Electrical & Compressor Vibration -->
+        <div class="glass-card p-3.5 rounded-xl border border-slate-800/90 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Elektrikal & Mekanis (SCT-013 + MEMS)</span>
+            <span class="font-mono text-[11px] text-emerald-400">221.4 V</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5 font-mono">
+            <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
+              <span class="text-[10px] text-slate-400 block">ARUS & DAYA AKTIF</span>
+              <div class="flex items-baseline gap-1.5 mt-0.5">
+                <span id="val-power" class="text-lg font-bold text-white">745 W</span>
+                <span id="val-current" class="text-xs text-emerald-400">(3.42 A)</span>
+              </div>
+            </div>
+            <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
+              <span class="text-[10px] text-slate-400 block">VIBRASI KOMPRESOR</span>
+              <div class="flex items-baseline gap-1.5 mt-0.5">
+                <span id="val-vib" class="text-lg font-bold text-emerald-400">1.18 mm/s</span>
+                <span class="text-[10px] text-slate-400">RMS</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter Pressure Drop & Condensate Level -->
+          <div class="space-y-2 pt-1">
+            <div>
+              <div class="flex justify-between text-[11px] font-mono mb-1">
+                <span class="text-slate-400">Saturasi Debu Filter (Hambatan Udara)</span>
+                <span id="val-filter" class="text-emerald-400">18% (Bersih)</span>
+              </div>
+              <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div id="bar-filter" class="h-full bg-emerald-400 transition-all duration-300" style="width: 18%"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-[11px] font-mono mb-1">
+                <span class="text-slate-400">Tampungan Drainase Kondensasi</span>
+                <span id="val-drain" class="text-cyan-400">24% Normal</span>
+              </div>
+              <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div id="bar-drain" class="h-full bg-cyan-400 transition-all duration-300" style="width: 24%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sustainable Innovation: Eco-AI & Water Harvesting -->
+        <div class="glass-card p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-950/15 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              Inovasi Berkelanjutan (Eco-AI)
+            </span>
+            <label class="inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="toggle-eco-ai" checked onchange="window.AeroApp.toggleEcoAi(this.checked)" class="sr-only peer">
+              <div class="w-8 h-4 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all relative peer-checked:bg-emerald-500"></div>
+            </label>
+          </div>
+          <p class="text-[11px] text-slate-300 leading-relaxed">
+            Optimasi Entalpi & *Dew-Point* aktif: menjaga *setpoint* dinamis agar kompresor tidak *over-cooling* tanpa mengorbankan kenyamanan termal.
+          </p>
+          <div class="grid grid-cols-2 gap-2 pt-1 font-mono">
+            <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
+              <span class="text-[10px] text-slate-400 block">HEMAT ENERGI & CO2</span>
+              <span id="val-eco-saved" class="text-xs font-bold text-emerald-400">28.4% (-4.2 kgCO₂)</span>
+            </div>
+            <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
+              <span class="text-[10px] text-slate-400 block">PANEN AIR DISTILASI</span>
+              <span id="val-water-harvest" class="text-xs font-bold text-cyan-300">6.8 Liter / Hari</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3D Fault Anomaly Simulator -->
+        <div class="glass-card p-3.5 rounded-xl border border-slate-800/90 space-y-2">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block">Simulasi Injeksi Anomali 3D</span>
+          <div class="grid grid-cols-2 gap-1.5 text-xs font-mono">
+            <button onclick="window.AeroApp.setFaultMode('normal')" id="fault-normal" class="fault-btn active py-1.5 px-2 rounded border border-emerald-500/50 bg-emerald-500/20 text-emerald-300">Normal Optimal</button>
+            <button onclick="window.AeroApp.setFaultMode('low_freon')" id="fault-low_freon" class="fault-btn py-1.5 px-2 rounded border border-slate-800 bg-slate-900 text-slate-400 hover:text-amber-300">Freon Bocor ($\Delta T$ Drop)</button>
+            <button onclick="window.AeroApp.setFaultMode('clogged_filter')" id="fault-clogged_filter" class="fault-btn py-1.5 px-2 rounded border border-slate-800 bg-slate-900 text-slate-400 hover:text-amber-300">Filter Mampet</button>
+            <button onclick="window.AeroApp.setFaultMode('drain_overflow')" id="fault-drain_overflow" class="fault-btn py-1.5 px-2 rounded border border-slate-800 bg-slate-900 text-slate-400 hover:text-rose-400">Drainase Meluap</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-[11px] font-mono text-slate-500 border-t border-slate-800/80 pt-2 flex justify-between">
+        <span>FW: AMEF-C3-HVAC v2.4</span>
+        <span>UPTIME: 14d 08h 21m</span>
+      </div>
+    </aside>
+
+    <!-- CENTER VIEWPORT: 3D DIGITAL TWIN CANVAS -->
+    <main class="flex-1 relative bg-gradient-to-b from-[#070B12] via-[#0B1220] to-[#070B12] overflow-hidden">
+      <div id="canvas-container" class="w-full h-full"></div>
+
+      <!-- Top-Left Floating Viewport Controls -->
+      <div class="absolute top-3 left-3 flex flex-wrap items-center gap-2 z-10">
+        <button onclick="window.AeroApp.toggleXray()" id="btn-xray" class="px-3 py-1.5 rounded-lg bg-slate-900/85 hover:bg-slate-800 border border-slate-700/80 text-xs font-mono text-slate-200 flex items-center gap-1.5 backdrop-blur-md transition-all cursor-pointer">
+          <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+          <span>X-Ray CAD Mode: OFF</span>
+        </button>
+        <button onclick="window.AeroApp.toggleCfd()" id="btn-cfd" class="px-3 py-1.5 rounded-lg bg-emerald-950/85 border border-emerald-500/50 text-xs font-mono text-emerald-300 flex items-center gap-1.5 backdrop-blur-md transition-all cursor-pointer">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Partikel CFD: ON</span>
+        </button>
+        <button onclick="window.AeroTwin3D.resetCamera()" class="px-3 py-1.5 rounded-lg bg-slate-900/85 hover:bg-slate-800 border border-slate-700/80 text-xs font-mono text-slate-300 backdrop-blur-md transition-all cursor-pointer">
+          Reset Kamera
+        </button>
+      </div>
+
+      <!-- Hotspot Inspector Card (Appears when clicking a 3D Pin) -->
+      <div id="hotspot-card" class="hidden absolute bottom-16 md:bottom-4 left-3 right-3 md:right-auto md:w-96 p-4 rounded-xl bg-slate-950/90 border border-emerald-500/50 backdrop-blur-lg shadow-2xl z-20">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <span id="hs-tag" class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">GPIO PIN</span>
+            <h3 id="hs-title" class="text-sm font-bold text-white mt-1">ESP32-C3 SuperMini Core Node</h3>
+          </div>
+          <button onclick="document.getElementById('hotspot-card').classList.add('hidden')" class="text-slate-400 hover:text-white text-xs font-mono">✕</button>
+        </div>
+        <p id="hs-desc" class="text-xs text-slate-300 mt-2 leading-relaxed"></p>
+        <div id="hs-metric" class="mt-2.5 pt-2 border-t border-slate-800 font-mono text-xs text-cyan-300"></div>
+      </div>
+
+      <!-- Bottom-Right Legend -->
+      <div class="hidden sm:flex absolute bottom-3 right-3 items-center gap-3 px-3 py-1.5 rounded-lg bg-slate-950/80 border border-slate-800 text-[11px] font-mono text-slate-400 backdrop-blur-md">
+        <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full bg-cyan-400 inline-block"></i> Udara Supply Dingin</span>
+        <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full bg-amber-400 inline-block"></i> Udara Return Hangat</span>
+        <span>Klik Pin 3D untuk Detail Sensor</span>
+      </div>
+    </main>
+
+    <!-- RIGHT SIDEBAR: REMOTE COMMAND & LIVE FRAME TERMINAL -->
+    <aside id="panel-control" class="w-full md:w-80 lg:w-88 border-l border-slate-800/80 bg-panel/85 backdrop-blur-md z-20 flex flex-col justify-between overflow-y-auto p-4 space-y-4 absolute md:static inset-0 hidden md:flex">
+      <div class="space-y-4">
+        <!-- Master Power & Setpoint Control -->
+        <div class="glass-card p-4 rounded-xl border border-slate-800/90 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block">Kendali Jarak Jauh</span>
+              <span id="status-ac-power" class="text-xs font-mono text-emerald-400">STATUS: RUNNING NORMAL</span>
+            </div>
+            <button onclick="window.AeroApp.togglePower()" id="btn-power" class="w-10 h-10 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 transition-all cursor-pointer">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </button>
+          </div>
+
+          <!-- Target Temperature Dial -->
+          <div class="flex items-center justify-between bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+            <button onclick="window.AeroApp.adjustTemp(-0.5)" class="w-10 h-10 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-mono text-lg font-bold transition-all cursor-pointer">-</button>
+            <div class="text-center font-mono">
+              <span class="text-[10px] text-slate-400 uppercase block">TARGET SETPOINT</span>
+              <span id="val-setpoint" class="text-3xl font-bold text-white tracking-tight">21.0°C</span>
+            </div>
+            <button onclick="window.AeroApp.adjustTemp(0.5)" class="w-10 h-10 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-mono text-lg font-bold transition-all cursor-pointer">+</button>
+          </div>
+
+          <!-- Operating Mode -->
+          <div>
+            <label class="text-[11px] font-mono uppercase text-slate-400 block mb-1.5">Mode Operasi Kompresor</label>
+            <div class="grid grid-cols-4 gap-1.5 font-mono text-xs">
+              <button onclick="window.AeroApp.setMode('COOL')" id="mode-COOL" class="mode-btn active py-2 rounded-lg border border-cyan-500/50 bg-cyan-500/20 text-cyan-300 font-semibold">COOL</button>
+              <button onclick="window.AeroApp.setMode('DRY')" id="mode-DRY" class="mode-btn py-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-400">DRY</button>
+              <button onclick="window.AeroApp.setMode('FAN')" id="mode-FAN" class="mode-btn py-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-400">FAN</button>
+              <button onclick="window.AeroApp.setMode('ECO')" id="mode-ECO" class="mode-btn py-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-400">ECO</button>
+            </div>
+          </div>
+
+          <!-- Fan Speed & Louver Angle -->
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-[11px] font-mono mb-1">
+                <span class="text-slate-400">Kecepatan Blower (RPM)</span>
+                <span id="val-fan-rpm" class="text-cyan-300">HIGH (1,280 RPM)</span>
+              </div>
+              <input type="range" min="1" max="4" value="3" oninput="window.AeroApp.setFanSpeed(this.value)" class="w-full accent-emerald-400 cursor-pointer" />
+            </div>
+
+            <div>
+              <div class="flex justify-between text-[11px] font-mono mb-1">
+                <span class="text-slate-400">Sudut Bukaan Swing Louver 3D</span>
+                <span id="val-louver" class="text-emerald-400">45° (Auto Sweep)</span>
+              </div>
+              <input type="range" min="15" max="85" value="45" oninput="window.AeroApp.setLouverAngle(this.value)" class="w-full accent-emerald-400 cursor-pointer" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Hardware Bridge Protocol Selector -->
+        <div class="glass-card p-3.5 rounded-xl border border-slate-800/90 space-y-2.5">
+          <label class="text-[11px] font-mono uppercase text-slate-400 block">Jembatan Protokol Hardware C3</label>
+          <select id="select-protocol" onchange="window.AeroApp.setProtocol(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-emerald-500">
+            <option value="RMT_IR">GPIO4 — RMT IR Blaster 38kHz (Daikin/Gree/Panasonic)</option>
+            <option value="MODBUS_RS485">GPIO6/7 — RS485 Modbus RTU (9600 8N1 Slave ID 01)</option>
+            <option value="UART_CN105">GPIO20/21 — Direct UART CN105 / S21 Bridge</option>
+          </select>
+
+          <!-- Live Hex Frame Terminal -->
+          <div class="bg-black/90 rounded-lg p-2.5 border border-slate-800 font-mono text-[11px] space-y-1.5">
+            <div class="flex items-center justify-between text-[10px] text-slate-500 border-b border-slate-800 pb-1">
+              <span>TX PAYLOAD INSPECTOR</span>
+              <span id="tx-proto-badge" class="text-emerald-400">RMT_IR_38KHZ</span>
+            </div>
+            <div id="terminal-log" class="h-28 overflow-y-auto space-y-1 text-emerald-400/90 leading-tight"></div>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="window.AeroApp.sendManualCommandSync()" class="w-full py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 font-mono text-xs font-semibold transition-all cursor-pointer">
+        ⚡ TRANSMIT SYNC PACKET KE ESP32-C3
+      </button>
+    </aside>
+  </div>
+
+  <!-- MOBILE BOTTOM NAVIGATION BAR -->
+  <nav class="md:hidden h-14 border-t border-slate-800 bg-panel px-4 flex items-center justify-around z-30 shrink-0 font-mono text-xs">
+    <button onclick="window.AeroApp.switchMobileView('3d')" id="mnav-3d" class="text-emerald-400 font-semibold flex flex-col items-center">
+      <span>3D Twin</span>
+    </button>
+    <button onclick="window.AeroApp.switchMobileView('telemetry')" id="mnav-telemetry" class="text-slate-400 flex flex-col items-center">
+      <span>Sensor & Eco</span>
+    </button>
+    <button onclick="window.AeroApp.switchMobileView('control')" id="mnav-control" class="text-slate-400 flex flex-col items-center">
+      <span>Remote AC</span>
+    </button>
+    <button onclick="window.AeroApp.toggleSetupModal(true)" class="text-cyan-400 flex flex-col items-center">
+      <span>Setup C3</span>
+    </button>
+  </nav>
+
+  <!-- ESP32-C3 SUPERMINI REMOTE PROVISIONING & SETUP MODAL -->
+  <div id="modal-setup" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 md:p-6">
+    <div class="bg-panel border border-slate-700/80 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <!-- Modal Header -->
+      <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+        <div>
+          <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">RISC-V 160MHz SINGLE-CORE</span>
+          <h2 class="text-base md:text-lg font-bold text-white mt-0.5">Remote Provisioning & Pinout Setup — ESP32-C3 SuperMini</h2>
+        </div>
+        <button onclick="window.AeroApp.toggleSetupModal(false)" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono">✕</button>
+      </div>
+
+      <!-- Modal Content -->
+      <div class="p-5 overflow-y-auto grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <!-- Left Column: Interactive ESP32-C3 SuperMini Pinout Map -->
+        <div class="space-y-4">
+          <h3 class="text-xs font-mono uppercase tracking-wider text-emerald-400">1. Arsitektur Pinout Hardware ESP32-C3 SuperMini</h3>
+          <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs space-y-2">
+            <div class="text-center text-slate-400 text-[11px] pb-2 border-b border-slate-800">USB TYPE-C (CDC JTAG / POWER 5V)</div>
+            <div class="grid grid-cols-2 gap-3 pt-1">
+              <div class="space-y-1.5">
+                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-amber-400">GPIO0 (ADC1)</span><span>SCT-013 CT</span></div>
+                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-amber-400">GPIO1 (ADC1)</span><span>Drain Level</span></div>
+                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-cyan-400">GPIO2</span><span>1-Wire DS18B20</span></div>
+                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-emerald-400">GPIO3</span><span>RMT IR RX</span></div>
+                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-emerald-400">GPIO4</span><span>RMT IR TX 38k</span></div>
+                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-purple-400">GPIO5</span><span>RS485 DE/RE</span></div>
+              </div>
+              <div class="space-y-1.5">
+                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span>5V / VBUS</span><span class="text-rose-400">PWR IN</span></div>
+                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span>GND</span><span class="text-slate-500">COMMON</span></div>
+                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-purple-400">GPIO6</span><span>RS485 TX</span></div>
+                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-purple-400">GPIO7</span><span>RS485 RX</span></div>
+                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-cyan-400">GPIO8 / 9</span><span>I2C MEMS/BME</span></div>
+                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-emerald-400">GPIO20 / 21</span><span>UART CN105</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Network & MQTT Failover Config -->
+          <div class="space-y-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+            <h4 class="text-xs font-mono uppercase text-slate-300">2. Konfigurasi Jaringan, MQTT & Watchdog</h4>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs font-mono">
+              <div>
+                <label class="text-[10px] text-slate-400 block mb-1">DEVICE HOSTNAME</label>
+                <input id="cfg-hostname" type="text" value="esp32c3-hvac-pop04" oninput="window.AeroApp.updateGeneratedHeader()" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white" />
+              </div>
+              <div>
+                <label class="text-[10px] text-slate-400 block mb-1">MQTT BROKER URI</label>
+                <input id="cfg-mqtt" type="text" value="mqtt://10.20.4.10:1883" oninput="window.AeroApp.updateGeneratedHeader()" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white" />
+              </div>
+              <div>
+                <label class="text-[10px] text-slate-400 block mb-1">PROTOKOL VENDOR AC</label>
+                <select id="cfg-vendor" onchange="window.AeroApp.updateGeneratedHeader()" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
+                  <option value="DAIKIN_ARC">Daikin ARC480A (IR / S21)</option>
+                  <option value="MITSUBISHI_CN105">Mitsubishi Electric CN105</option>
+                  <option value="GREE_YAC">Gree / Cooper&Hunter YAC1FB</option>
+                  <option value="CRAC_MODBUS">Stulz / Liebert CRAC Modbus RTU</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-[10px] text-slate-400 block mb-1">HARDWARE WDT TIMEOUT (DETIK)</label>
+                <input id="cfg-wdt" type="number" value="15" oninput="window.AeroApp.updateGeneratedHeader()" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Auto-Generated C++ Header & OTA Flash -->
+        <div class="space-y-3 flex flex-col justify-between">
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-mono uppercase tracking-wider text-emerald-400">3. Generator Konfigurasi `aero_c3_config.h`</h3>
+              <button onclick="window.AeroApp.copyConfigHeader()" class="text-[11px] font-mono px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 cursor-pointer">Copy Header</button>
+            </div>
+            <pre id="code-preview" class="bg-black/95 border border-slate-800 rounded-xl p-3.5 text-[11px] font-mono text-emerald-300 overflow-x-auto h-72 leading-relaxed"></pre>
+          </div>
+
+          <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
+            <div class="flex justify-between text-xs font-mono">
+              <span class="text-slate-300">Push Konfigurasi via MQTT RPC / OTA</span>
+              <span id="ota-status" class="text-emerald-400">Siap Sinkronisasi</span>
+            </div>
+            <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
+              <div id="ota-bar" class="h-full bg-emerald-500 transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <button onclick="window.AeroApp.triggerRemoteOtaPush()" class="w-full py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono text-xs font-bold transition-all cursor-pointer">
+              PUSH NVS CONFIG & REBOOT ESP32-C3
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Scripts -->
+  <script src="js/digital-twin-3d.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
