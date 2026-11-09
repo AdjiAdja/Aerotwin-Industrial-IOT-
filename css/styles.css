@@ -1,0 +1,38 @@
+/* Custom Glassmorphism & Industrial Dark UI Styling */
+.glass-card {
+  background: linear-gradient(145deg, rgba(16, 24, 39, 0.85), rgba(10, 15, 26, 0.92));
+  box-shadow: 0 8px 28px -6px rgba(0, 0, 0, 0.55);
+}
+
+.ac-type-btn {
+  color: #94a3b8;
+}
+
+.ac-type-btn:hover {
+  color: #f8fafc;
+}
+
+.ac-type-btn.active {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: #070b12;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #10b981;
+}
