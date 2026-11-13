@@ -1,456 +1,2181 @@
 <!DOCTYPE html>
 <html lang="id" class="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AeroTwin C3 — Universal HVAC 3D Digital Twin & ESP32-C3 Command Center</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            obsidian: '#070B12',
-            panel: '#0D131F',
-            emerald: {
-              450: '#10B981',
-              550: '#059669'
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AERO-TWIN // ESP32-C3 Universal HVAC Digital Twin & Telemetry</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Three.js r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        obsidian: '#060911',
+                        slatepanel: '#0B111E',
+                        slatecard: '#111827',
+                        slateborder: '#1E293B',
+                        emerald: {
+                            450: '#10B981',
+                            550: '#059669'
+                        },
+                        cyan: {
+                            450: '#06B6D4'
+                        }
+                    }
+                }
             }
-          },
-          fontFamily: {
-            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-            mono: ['JetBrains Mono', 'Fira Code', 'monospace']
-          }
         }
-      }
-    }
-  </script>
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <!-- Custom Styles -->
-  <link rel="stylesheet" href="css/styles.css" />
-  <!-- Three.js & OrbitControls -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    </script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            scrollbar-width: thin;
+            scrollbar-color: #1E293B #090D16;
+        }
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090D16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1E293B;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #10B981;
+        }
+
+        body {
+            background-color: #060911;
+            color: #F1F5F9;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        /* Glassmorphism Industrial Panels */
+        .hud-panel {
+            background: rgba(11, 17, 30, 0.84);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(30, 41, 59, 0.85);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+        }
+
+        .hud-panel-emerald {
+            border-color: rgba(16, 185, 129, 0.35);
+            box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.12), inset 0 1px 0 0 rgba(16, 185, 129, 0.15);
+        }
+
+        .hud-panel-rose {
+            border-color: rgba(244, 63, 94, 0.5);
+            box-shadow: 0 0 25px -5px rgba(244, 63, 94, 0.2), inset 0 1px 0 0 rgba(244, 63, 94, 0.2);
+        }
+
+        /* 3D Hotspot Markers */
+        .hotspot-pin {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            pointer-events: auto;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+            z-index: 20;
+        }
+        .hotspot-pin:hover {
+            transform: translate(-50%, -50%) scale(1.14);
+            z-index: 30;
+        }
+        .hotspot-pulse {
+            animation: pinPulse 2.2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+        }
+        @keyframes pinPulse {
+            0%, 100% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.55); opacity: 0.15; }
+        }
+
+        /* Scanline subtle overlay for CAD feel */
+        .cad-grid-bg {
+            background-image: 
+                linear-gradient(to right, rgba(30, 41, 59, 0.18) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(30, 41, 59, 0.18) 1px, transparent 1px);
+            background-size: 28px 28px;
+        }
+
+        /* Custom Range Input */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 3px;
+            background: #1E293B;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #10B981;
+            margin-top: -5px;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+            border: 2px solid #060911;
+        }
+
+        /* Blinking status LED */
+        .led-blink {
+            animation: ledBlink 1.2s infinite ease-in-out;
+        }
+        @keyframes ledBlink {
+            0%, 100% { opacity: 1; filter: drop-shadow(0 0 6px #10B981); }
+            50% { opacity: 0.3; filter: none; }
+        }
+    </style>
 </head>
-<body class="bg-obsidian text-slate-100 font-sans antialiased selection:bg-emerald-500 selection:text-black overflow-hidden h-screen flex flex-col">
+<body class="h-screen w-screen overflow-hidden flex flex-col cad-grid-bg">
 
-  <!-- TOP HEADER BAR -->
-  <header class="h-14 border-b border-slate-800/80 bg-panel/90 backdrop-blur-md px-4 flex items-center justify-between z-30 shrink-0">
-    <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center shadow-inner">
-        <span class="font-mono font-bold text-emerald-400 text-sm">C3</span>
-      </div>
-      <div>
-        <div class="flex items-center gap-2">
-          <h1 class="font-bold text-sm md:text-base tracking-tight text-white">AeroTwin <span class="text-emerald-400 font-mono text-xs px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-700/50">v2.4-SUPERMINI</span></h1>
-          <span class="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded-full">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-            MQTT ONLINE (42ms)
-          </span>
-        </div>
-        <p class="text-[11px] text-slate-400 hidden sm:block">Universal HVAC 3D Digital Twin & Hardware Telemetry Interface</p>
-      </div>
-    </div>
-
-    <!-- AC Architecture Selector (Desktop Center) -->
-    <div class="hidden lg:flex items-center bg-slate-900/90 p-1 rounded-lg border border-slate-800">
-      <button onclick="window.AeroApp.setAcType('split')" id="btn-type-split" class="ac-type-btn active px-3 py-1 rounded-md text-xs font-medium transition-all">Wall Split</button>
-      <button onclick="window.AeroApp.setAcType('cassette')" id="btn-type-cassette" class="ac-type-btn px-3 py-1 rounded-md text-xs font-medium transition-all">4-Way Cassette</button>
-      <button onclick="window.AeroApp.setAcType('crac')" id="btn-type-crac" class="ac-type-btn px-3 py-1 rounded-md text-xs font-medium transition-all">Data Center CRAC</button>
-      <button onclick="window.AeroApp.setAcType('vrf')" id="btn-type-vrf" class="ac-type-btn px-3 py-1 rounded-md text-xs font-medium transition-all">Central VRF Duct</button>
-    </div>
-
-    <!-- Right Actions & ESP32-C3 Setup Trigger -->
-    <div class="flex items-center gap-2">
-      <div class="hidden md:flex flex-col items-end mr-2 font-mono text-[11px]">
-        <span class="text-slate-300">NODE: <strong class="text-emerald-400">ESP32C3-POP-04</strong></span>
-        <span class="text-slate-400">RSSI: -58 dBm |HEAP: 184 KB</span>
-      </div>
-      <button onclick="window.AeroApp.toggleSetupModal(true)" class="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold text-xs px-3.5 py-2 rounded-lg shadow-lg shadow-emerald-500/10 transition-all cursor-pointer">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-        <span>Setup ESP32-C3</span>
-      </button>
-    </div>
-  </header>
-
-  <!-- MAIN WORKSPACE -->
-  <div class="flex-1 flex relative overflow-hidden">
-
-    <!-- LEFT SIDEBAR: SENSOR TELEMETRY & ECO-AI SUSTAINABILITY -->
-    <aside id="panel-telemetry" class="w-full md:w-80 lg:w-88 border-r border-slate-800/80 bg-panel/85 backdrop-blur-md z-20 flex flex-col justify-between overflow-y-auto p-4 space-y-4 absolute md:static inset-0 hidden md:flex">
-      <div class="space-y-4">
-        <!-- Mobile AC Type Selector -->
-        <div class="lg:hidden">
-          <label class="text-[11px] font-mono uppercase text-slate-400 block mb-1.5">Pilih Arsitektur Unit 3D</label>
-          <div class="grid grid-cols-2 gap-1.5 bg-slate-900 p-1.5 rounded-lg border border-slate-800">
-            <button onclick="window.AeroApp.setAcType('split')" class="ac-type-btn-mobile px-2 py-1.5 rounded text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">Wall Split</button>
-            <button onclick="window.AeroApp.setAcType('cassette')" class="ac-type-btn-mobile px-2 py-1.5 rounded text-xs font-medium text-slate-400">4-Way Cassette</button>
-            <button onclick="window.AeroApp.setAcType('crac')" class="ac-type-btn-mobile px-2 py-1.5 rounded text-xs font-medium text-slate-400">CRAC Server</button>
-            <button onclick="window.AeroApp.setAcType('vrf')" class="ac-type-btn-mobile px-2 py-1.5 rounded text-xs font-medium text-slate-400">Central VRF</button>
-          </div>
-        </div>
-
-        <!-- Thermal Delta-T Block -->
-        <div class="glass-card p-3.5 rounded-xl border border-slate-800/90 space-y-3">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
-              Termodinamika ($\Delta T$ Evaporator)
-            </span>
-            <span id="badge-cop" class="font-mono text-[11px] px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800/60">COP: 3.85</span>
-          </div>
-
-          <div class="grid grid-cols-3 gap-2 text-center font-mono">
-            <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-800">
-              <div class="text-[10px] text-slate-400">RETURN IN</div>
-              <div id="val-temp-in" class="text-base font-bold text-amber-400 mt-0.5">26.8°C</div>
+    <!-- ==================== TOP MISSION CONTROL HEADER ==================== -->
+    <header class="h-14 hud-panel border-b border-slate-800/90 px-3 lg:px-5 flex items-center justify-between z-40 shrink-0">
+        <!-- Left: Brand & Node Identity -->
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shadow-inner">
+                <i data-lucide="cpu" class="w-5 h-5"></i>
             </div>
-            <div class="bg-slate-900/90 p-2 rounded-lg border border-slate-800">
-              <div class="text-[10px] text-slate-400">SUPPLY OUT</div>
-              <div id="val-temp-out" class="text-base font-bold text-cyan-400 mt-0.5">14.2°C</div>
-            </div>
-            <div class="bg-emerald-950/40 p-2 rounded-lg border border-emerald-700/40">
-              <div class="text-[10px] text-emerald-300">DELTA $\Delta T$</div>
-              <div id="val-delta-t" class="text-base font-bold text-emerald-400 mt-0.5">12.6°C</div>
-            </div>
-          </div>
-
-          <div class="flex justify-between items-center text-xs text-slate-400 pt-1 border-t border-slate-800/60 font-mono">
-            <span>Kelembapan Relatif (RH): <strong id="val-rh" class="text-slate-200">54%</strong></span>
-            <span>Titik Embun: <strong id="val-dew" class="text-cyan-300">16.4°C</strong></span>
-          </div>
-        </div>
-
-        <!-- Electrical & Compressor Vibration -->
-        <div class="glass-card p-3.5 rounded-xl border border-slate-800/90 space-y-3">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Elektrikal & Mekanis (SCT-013 + MEMS)</span>
-            <span class="font-mono text-[11px] text-emerald-400">221.4 V</span>
-          </div>
-
-          <div class="grid grid-cols-2 gap-2.5 font-mono">
-            <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
-              <span class="text-[10px] text-slate-400 block">ARUS & DAYA AKTIF</span>
-              <div class="flex items-baseline gap-1.5 mt-0.5">
-                <span id="val-power" class="text-lg font-bold text-white">745 W</span>
-                <span id="val-current" class="text-xs text-emerald-400">(3.42 A)</span>
-              </div>
-            </div>
-            <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
-              <span class="text-[10px] text-slate-400 block">VIBRASI KOMPRESOR</span>
-              <div class="flex items-baseline gap-1.5 mt-0.5">
-                <span id="val-vib" class="text-lg font-bold text-emerald-400">1.18 mm/s</span>
-                <span class="text-[10px] text-slate-400">RMS</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Filter Pressure Drop & Condensate Level -->
-          <div class="space-y-2 pt-1">
             <div>
-              <div class="flex justify-between text-[11px] font-mono mb-1">
-                <span class="text-slate-400">Saturasi Debu Filter (Hambatan Udara)</span>
-                <span id="val-filter" class="text-emerald-400">18% (Bersih)</span>
-              </div>
-              <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                <div id="bar-filter" class="h-full bg-emerald-400 transition-all duration-300" style="width: 18%"></div>
-              </div>
+                <div class="flex items-center gap-2">
+                    <span class="font-mono font-bold text-sm tracking-wider text-white">AERO-TWIN <span class="text-emerald-400">v4.2</span></span>
+                    <span class="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 led-blink"></span>
+                        ESP32-C3 SUPERMINI
+                    </span>
+                    <span id="headerFaultBadge" class="hidden items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse">
+                        <i data-lucide="alert-triangle" class="w-3 h-3"></i>
+                        <span id="headerFaultText">ANOMALY DETECTED</span>
+                    </span>
+                </div>
+                <div class="text-[11px] font-mono text-slate-400 flex items-center gap-2">
+                    <span>MAC: <strong class="text-slate-300">EC:DA:3B:91:04:F2</strong></span>
+                    <span class="hidden md:inline">•</span>
+                    <span class="hidden md:inline">RISC-V 160MHz</span>
+                    <span class="hidden lg:inline">•</span>
+                    <span class="hidden lg:inline text-cyan-400" id="headerProtocolBadge">PROTO: RMT_IR_38KHZ + MODBUS_RTU</span>
+                </div>
             </div>
-
-            <div>
-              <div class="flex justify-between text-[11px] font-mono mb-1">
-                <span class="text-slate-400">Tampungan Drainase Kondensasi</span>
-                <span id="val-drain" class="text-cyan-400">24% Normal</span>
-              </div>
-              <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                <div id="bar-drain" class="h-full bg-cyan-400 transition-all duration-300" style="width: 24%"></div>
-              </div>
-            </div>
-          </div>
         </div>
 
-        <!-- Sustainable Innovation: Eco-AI & Water Harvesting -->
-        <div class="glass-card p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-950/15 space-y-2.5">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-              Inovasi Berkelanjutan (Eco-AI)
-            </span>
-            <label class="inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="toggle-eco-ai" checked onchange="window.AeroApp.toggleEcoAi(this.checked)" class="sr-only peer">
-              <div class="w-8 h-4 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all relative peer-checked:bg-emerald-500"></div>
-            </label>
-          </div>
-          <p class="text-[11px] text-slate-300 leading-relaxed">
-            Optimasi Entalpi & *Dew-Point* aktif: menjaga *setpoint* dinamis agar kompresor tidak *over-cooling* tanpa mengorbankan kenyamanan termal.
-          </p>
-          <div class="grid grid-cols-2 gap-2 pt-1 font-mono">
-            <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
-              <span class="text-[10px] text-slate-400 block">HEMAT ENERGI & CO2</span>
-              <span id="val-eco-saved" class="text-xs font-bold text-emerald-400">28.4% (-4.2 kgCO₂)</span>
+        <!-- Center: AC Architecture Type Switcher (Desktop) -->
+        <div class="hidden xl:flex items-center bg-slate-900/90 p-1 rounded-lg border border-slate-800 gap-1">
+            <button onclick="switchACModel('split')" id="btnModel-split" class="ac-type-btn px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                <i data-lucide="air-vent" class="w-3.5 h-3.5"></i>
+                <span data-i18n="model_split">Wall Split AC</span>
+            </button>
+            <button onclick="switchACModel('cassette')" id="btnModel-cassette" class="ac-type-btn px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5 border border-transparent">
+                <i data-lucide="grid" class="w-3.5 h-3.5"></i>
+                <span data-i18n="model_cassette">4-Way Cassette</span>
+            </button>
+            <button onclick="switchACModel('crac')" id="btnModel-crac" class="ac-type-btn px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5 border border-transparent">
+                <i data-lucide="server" class="w-3.5 h-3.5"></i>
+                <span data-i18n="model_crac">Floor Standing CRAC</span>
+            </button>
+            <button onclick="switchACModel('vrf')" id="btnModel-vrf" class="ac-type-btn px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5 border border-transparent">
+                <i data-lucide="wind" class="w-3.5 h-3.5"></i>
+                <span data-i18n="model_vrf">Central VRF Duct</span>
+            </button>
+        </div>
+
+        <!-- Right: Telemetry Heartbeat, Provisioning Button & Language Toggle -->
+        <div class="flex items-center gap-2 sm:gap-3">
+            <!-- Wi-Fi RSSI & Heap Pill -->
+            <div class="hidden md:flex items-center gap-3 bg-slate-900/80 border border-slate-800 px-3 py-1 rounded-lg font-mono text-[11px]">
+                <div class="flex items-center gap-1 text-emerald-400" title="Wi-Fi RSSI Signal">
+                    <i data-lucide="wifi" class="w-3.5 h-3.5"></i>
+                    <span id="hudRssi">-54 dBm</span>
+                </div>
+                <div class="h-3 w-[1px] bg-slate-800"></div>
+                <div class="text-slate-400" title="Free SRAM Heap">
+                    SRAM: <span class="text-cyan-400" id="hudHeap">248 KB</span>
+                </div>
+                <div class="h-3 w-[1px] bg-slate-800"></div>
+                <div class="text-slate-400" title="MQTT / WebSocket RTT">
+                    RTT: <span class="text-emerald-400" id="hudRtt">14 ms</span>
+                </div>
             </div>
-            <div class="bg-slate-900/80 p-2 rounded border border-slate-800">
-              <span class="text-[10px] text-slate-400 block">PANEN AIR DISTILASI</span>
-              <span id="val-water-harvest" class="text-xs font-bold text-cyan-300">6.8 Liter / Hari</span>
+
+            <!-- Remote ESP32-C3 Setup & Pinout Modal Trigger -->
+            <button onclick="openProvisionModal()" class="px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/40 text-xs font-mono font-semibold flex items-center gap-1.5 transition-all shadow-sm">
+                <i data-lucide="Sliders" class="w-3.5 h-3.5"></i>
+                <span data-i18n="btn_provision">ESP32-C3 Setup</span>
+            </button>
+
+            <!-- Language Toggle (ID / EN) -->
+            <button onclick="toggleLanguage()" id="langBtn" class="px-2.5 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-xs font-mono font-bold text-slate-200 border border-slate-700 transition-all">
+                ID
+            </button>
+        </div>
+    </header>
+
+    <!-- ==================== MOBILE AC MODEL BAR (Visible < XL) ==================== -->
+    <div class="xl:hidden hud-panel border-b border-slate-800 px-2 py-1.5 flex items-center justify-between gap-1 overflow-x-auto z-30 shrink-0">
+        <div class="flex items-center gap-1">
+            <button onclick="switchACModel('split')" id="btnModelMob-split" class="ac-type-btn-mob px-2.5 py-1 rounded text-[11px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 whitespace-nowrap">
+                Wall Split
+            </button>
+            <button onclick="switchACModel('cassette')" id="btnModelMob-cassette" class="ac-type-btn-mob px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 whitespace-nowrap">
+                4-Way Cassette
+            </button>
+            <button onclick="switchACModel('crac')" id="btnModelMob-crac" class="ac-type-btn-mob px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 whitespace-nowrap">
+                Floor CRAC
+            </button>
+            <button onclick="switchACModel('vrf')" id="btnModelMob-vrf" class="ac-type-btn-mob px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 whitespace-nowrap">
+                VRF Duct
+            </button>
+        </div>
+        <!-- Mobile Panel Switcher -->
+        <div class="flex lg:hidden items-center gap-1 shrink-0">
+            <button onclick="toggleMobileDrawer('left')" class="px-2 py-1 rounded bg-slate-800 text-[11px] font-mono text-cyan-400 border border-slate-700">
+                <i data-lucide="remote" class="w-3 h-3 inline"></i> Control
+            </button>
+            <button onclick="toggleMobileDrawer('right')" class="px-2 py-1 rounded bg-slate-800 text-[11px] font-mono text-emerald-400 border border-slate-700">
+                <i data-lucide="activity" class="w-3 h-3 inline"></i> Telemetry
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== MAIN ENGINEERING WORKSPACE ==================== -->
+    <main class="flex-1 relative overflow-hidden flex">
+
+        <!-- 1. CENTER 3D WEBGL DIGITAL TWIN VIEWPORT (Full Bleed Background) -->
+        <div id="canvasContainer" class="absolute inset-0 z-0 overflow-hidden">
+            <!-- Three.js Canvas Injected Here -->
+            <!-- 3D Hotspot Overlay Container -->
+            <div id="hotspotContainer" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+        </div>
+
+        <!-- 2. FLOATING 3D VIEWPORT TOOLBAR (TOP CENTER) -->
+        <div class="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex flex-wrap items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl hud-panel border border-slate-700/80 max-w-[95vw]">
+            <!-- Camera Presets -->
+            <div class="flex items-center gap-1 pr-2 border-r border-slate-700/80">
+                <span class="text-[10px] font-mono uppercase text-slate-400 hidden sm:inline mr-1" data-i18n="cam_view">CAM:</span>
+                <button onclick="setCameraView('iso')" class="px-2 py-1 rounded text-[11px] font-mono bg-slate-800/90 hover:bg-slate-700 text-slate-200 transition">ISO</button>
+                <button onclick="setCameraView('front')" class="px-2 py-1 rounded text-[11px] font-mono bg-slate-800/90 hover:bg-slate-700 text-slate-200 transition" data-i18n="cam_front">FRONT</button>
+                <button onclick="setCameraView('esp32')" class="px-2 py-1 rounded text-[11px] font-mono bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1">
+                    <i data-lucide="focus" class="w-3 h-3"></i> ESP32-C3
+                </button>
+                <button onclick="setCameraView('coil')" class="px-2 py-1 rounded text-[11px] font-mono bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 transition hidden sm:inline-flex items-center gap-1">
+                    <i data-lucide="thermometer-snowflake" class="w-3 h-3"></i> EVAP COIL
+                </button>
             </div>
-          </div>
+
+            <!-- CAD Visualization Layers -->
+            <div class="flex items-center gap-1.5">
+                <button onclick="toggleXRayMode()" id="btnXray" class="px-2.5 py-1 rounded text-[11px] font-mono bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1">
+                    <i data-lucide="layers" class="w-3 h-3 text-cyan-400"></i>
+                    <span data-i18n="layer_xray">X-Ray CAD</span>
+                </button>
+                <button onclick="toggleAirflowParticles()" id="btnAirflow" class="px-2.5 py-1 rounded text-[11px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 transition flex items-center gap-1">
+                    <i data-lucide="wind" class="w-3 h-3"></i>
+                    <span data-i18n="layer_cfd">CFD Thermal Flow</span>
+                </button>
+                <button onclick="toggleHotspots()" id="btnPins" class="px-2.5 py-1 rounded text-[11px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 transition flex items-center gap-1">
+                    <i data-lucide="map-pin" class="w-3 h-3"></i>
+                    <span class="hidden sm:inline" data-i18n="layer_pins">Pins (5)</span>
+                </button>
+            </div>
         </div>
 
-        <!-- 3D Fault Anomaly Simulator -->
-        <div class="glass-card p-3.5 rounded-xl border border-slate-800/90 space-y-2">
-          <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block">Simulasi Injeksi Anomali 3D</span>
-          <div class="grid grid-cols-2 gap-1.5 text-xs font-mono">
-            <button onclick="window.AeroApp.setFaultMode('normal')" id="fault-normal" class="fault-btn active py-1.5 px-2 rounded border border-emerald-500/50 bg-emerald-500/20 text-emerald-300">Normal Optimal</button>
-            <button onclick="window.AeroApp.setFaultMode('low_freon')" id="fault-low_freon" class="fault-btn py-1.5 px-2 rounded border border-slate-800 bg-slate-900 text-slate-400 hover:text-amber-300">Freon Bocor ($\Delta T$ Drop)</button>
-            <button onclick="window.AeroApp.setFaultMode('clogged_filter')" id="fault-clogged_filter" class="fault-btn py-1.5 px-2 rounded border border-slate-800 bg-slate-900 text-slate-400 hover:text-amber-300">Filter Mampet</button>
-            <button onclick="window.AeroApp.setFaultMode('drain_overflow')" id="fault-drain_overflow" class="fault-btn py-1.5 px-2 rounded border border-slate-800 bg-slate-900 text-slate-400 hover:text-rose-400">Drainase Meluap</button>
-          </div>
+        <!-- 3. SELECTED 3D HOTSPOT INSPECTOR POPUP (Bottom Center over 3D Canvas) -->
+        <div id="hotspotInspector" class="hidden absolute bottom-4 left-1/2 -translate-x-1/2 z-20 w-[92vw] max-w-lg hud-panel hud-panel-emerald rounded-xl p-3.5 transition-all">
+            <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-mono font-bold text-xs" id="pinInspectorBadge">
+                        P1
+                    </div>
+                    <div>
+                        <h4 class="text-xs font-mono font-bold text-white uppercase tracking-wide" id="pinInspectorTitle">ESP32-C3 SuperMini Core</h4>
+                        <p class="text-[11px] font-mono text-emerald-400" id="pinInspectorPinout">GPIO4 (RMT TX) • GPIO5 (IR RX) • GPIO6/7 (RS485)</p>
+                    </div>
+                </div>
+                <button onclick="closeHotspotInspector()" class="text-slate-400 hover:text-white p-1">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <p class="text-xs text-slate-300 mt-2 leading-relaxed" id="pinInspectorDesc">
+                Single-core 32-bit RISC-V microcontroller running at 160MHz. Captures raw IR frames via hardware RMT peripheral and polls industrial inverter registers via MAX485 Modbus RTU.
+            </p>
+            <div class="mt-2.5 pt-2 border-t border-slate-800/90 flex items-center justify-between text-[11px] font-mono">
+                <span class="text-slate-400">REAL-TIME BUS METRIC:</span>
+                <span class="text-cyan-300 font-semibold" id="pinInspectorLiveVal">STATE: NOMINAL (3.31V RAIL)</span>
+            </div>
         </div>
-      </div>
 
-      <div class="text-[11px] font-mono text-slate-500 border-t border-slate-800/80 pt-2 flex justify-between">
-        <span>FW: AMEF-C3-HVAC v2.4</span>
-        <span>UPTIME: 14d 08h 21m</span>
-      </div>
-    </aside>
+        <!-- ==================== LEFT DOCKED HUD: UNIVERSAL AC CONTROL & SUSTAINABLE AI ==================== -->
+        <aside id="leftDrawer" class="fixed lg:static inset-y-14 left-0 z-30 w-80 sm:w-88 lg:w-80 xl:w-96 hud-panel border-r border-slate-800/90 flex flex-col justify-between overflow-y-auto transition-transform duration-300 -translate-x-full lg:translate-x-0 p-3.5 gap-3.5">
+            
+            <div class="space-y-3.5">
+                <!-- Panel Header -->
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="Sliders-horizontal" class="w-4 h-4 text-emerald-400"></i>
+                        <h2 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-200" data-i18n="left_title">Universal AC Command Bridge</h2>
+                    </div>
+                    <button onclick="toggleMobileDrawer('left')" class="lg:hidden text-slate-400 hover:text-white">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
 
-    <!-- CENTER VIEWPORT: 3D DIGITAL TWIN CANVAS -->
-    <main class="flex-1 relative bg-gradient-to-b from-[#070B12] via-[#0B1220] to-[#070B12] overflow-hidden">
-      <div id="canvas-container" class="w-full h-full"></div>
+                <!-- Master Power & Target Setpoint Card -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <span class="text-[10px] font-mono uppercase text-slate-400 block" data-i18n="lbl_ac_state">SYSTEM POWER STATE</span>
+                            <div class="flex items-center gap-2 mt-0.5">
+                                <span id="acStateDot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#10B981]"></span>
+                                <span id="acStateLabel" class="font-mono font-bold text-sm text-white">RUNNING // COOLING</span>
+                            </div>
+                        </div>
+                        <button onclick="toggleACPower()" id="btnPower" class="w-10 h-10 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 flex items-center justify-center text-emerald-400 transition shadow-lg">
+                            <i data-lucide="power" class="w-5 h-5"></i>
+                        </button>
+                    </div>
 
-      <!-- Top-Left Floating Viewport Controls -->
-      <div class="absolute top-3 left-3 flex flex-wrap items-center gap-2 z-10">
-        <button onclick="window.AeroApp.toggleXray()" id="btn-xray" class="px-3 py-1.5 rounded-lg bg-slate-900/85 hover:bg-slate-800 border border-slate-700/80 text-xs font-mono text-slate-200 flex items-center gap-1.5 backdrop-blur-md transition-all cursor-pointer">
-          <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
-          <span>X-Ray CAD Mode: OFF</span>
-        </button>
-        <button onclick="window.AeroApp.toggleCfd()" id="btn-cfd" class="px-3 py-1.5 rounded-lg bg-emerald-950/85 border border-emerald-500/50 text-xs font-mono text-emerald-300 flex items-center gap-1.5 backdrop-blur-md transition-all cursor-pointer">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>Partikel CFD: ON</span>
-        </button>
-        <button onclick="window.AeroTwin3D.resetCamera()" class="px-3 py-1.5 rounded-lg bg-slate-900/85 hover:bg-slate-800 border border-slate-700/80 text-xs font-mono text-slate-300 backdrop-blur-md transition-all cursor-pointer">
-          Reset Kamera
-        </button>
-      </div>
+                    <!-- Temperature Stepper -->
+                    <div class="flex items-center justify-between bg-obsidian/80 border border-slate-800/90 rounded-xl p-3">
+                        <button onclick="adjustSetpoint(-0.5)" class="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 flex items-center justify-center transition">
+                            <i data-lucide="minus" class="w-4 h-4"></i>
+                        </button>
+                        <div class="text-center">
+                            <span class="text-[10px] font-mono text-slate-400 block" data-i18n="lbl_setpoint">TARGET SETPOINT</span>
+                            <div class="flex items-baseline justify-center gap-0.5">
+                                <span id="setpointDisplay" class="font-mono text-3xl font-bold text-cyan-400 tracking-tight">22.0</span>
+                                <span class="font-mono text-sm text-slate-400">°C</span>
+                            </div>
+                            <span id="ecoShiftBadge" class="text-[10px] font-mono text-emerald-400 hidden">+1.5°C AI Enthalpy Shift</span>
+                        </div>
+                        <button onclick="adjustSetpoint(0.5)" class="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 flex items-center justify-center transition">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                        </button>
+                    </div>
 
-      <!-- Hotspot Inspector Card (Appears when clicking a 3D Pin) -->
-      <div id="hotspot-card" class="hidden absolute bottom-16 md:bottom-4 left-3 right-3 md:right-auto md:w-96 p-4 rounded-xl bg-slate-950/90 border border-emerald-500/50 backdrop-blur-lg shadow-2xl z-20">
-        <div class="flex items-start justify-between gap-2">
-          <div>
-            <span id="hs-tag" class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">GPIO PIN</span>
-            <h3 id="hs-title" class="text-sm font-bold text-white mt-1">ESP32-C3 SuperMini Core Node</h3>
-          </div>
-          <button onclick="document.getElementById('hotspot-card').classList.add('hidden')" class="text-slate-400 hover:text-white text-xs font-mono">✕</button>
-        </div>
-        <p id="hs-desc" class="text-xs text-slate-300 mt-2 leading-relaxed"></p>
-        <div id="hs-metric" class="mt-2.5 pt-2 border-t border-slate-800 font-mono text-xs text-cyan-300"></div>
-      </div>
+                    <!-- Operating Modes -->
+                    <div class="mt-3">
+                        <span class="text-[10px] font-mono uppercase text-slate-400 block mb-1.5" data-i18n="lbl_mode">OPERATING MODE</span>
+                        <div class="grid grid-cols-5 gap-1">
+                            <button onclick="setACMode('COOL')" id="mode-COOL" class="ac-mode-btn py-1.5 rounded-lg text-[11px] font-mono font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex flex-col items-center gap-1">
+                                <i data-lucide="snowflake" class="w-3.5 h-3.5"></i> COOL
+                            </button>
+                            <button onclick="setACMode('DRY')" id="mode-DRY" class="ac-mode-btn py-1.5 rounded-lg text-[11px] font-mono text-slate-400 hover:text-slate-200 bg-slate-800/60 border border-transparent flex flex-col items-center gap-1">
+                                <i data-lucide="droplets" class="w-3.5 h-3.5"></i> DRY
+                            </button>
+                            <button onclick="setACMode('FAN')" id="mode-FAN" class="ac-mode-btn py-1.5 rounded-lg text-[11px] font-mono text-slate-400 hover:text-slate-200 bg-slate-800/60 border border-transparent flex flex-col items-center gap-1">
+                                <i data-lucide="fan" class="w-3.5 h-3.5"></i> FAN
+                            </button>
+                            <button onclick="setACMode('AUTO')" id="mode-AUTO" class="ac-mode-btn py-1.5 rounded-lg text-[11px] font-mono text-slate-400 hover:text-slate-200 bg-slate-800/60 border border-transparent flex flex-col items-center gap-1">
+                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> AUTO
+                            </button>
+                            <button onclick="setACMode('ECO')" id="mode-ECO" class="ac-mode-btn py-1.5 rounded-lg text-[11px] font-mono text-slate-400 hover:text-slate-200 bg-slate-800/60 border border-transparent flex flex-col items-center gap-1">
+                                <i data-lucide="leaf" class="w-3.5 h-3.5"></i> ECO-AI
+                            </button>
+                        </div>
+                    </div>
 
-      <!-- Bottom-Right Legend -->
-      <div class="hidden sm:flex absolute bottom-3 right-3 items-center gap-3 px-3 py-1.5 rounded-lg bg-slate-950/80 border border-slate-800 text-[11px] font-mono text-slate-400 backdrop-blur-md">
-        <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full bg-cyan-400 inline-block"></i> Udara Supply Dingin</span>
-        <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full bg-amber-400 inline-block"></i> Udara Return Hangat</span>
-        <span>Klik Pin 3D untuk Detail Sensor</span>
-      </div>
+                    <!-- Fan Speed & Motorized Louver Angle -->
+                    <div class="grid grid-cols-2 gap-2.5 mt-3">
+                        <div>
+                            <span class="text-[10px] font-mono uppercase text-slate-400 block mb-1" data-i18n="lbl_fan">BLOWER RPM / SPEED</span>
+                            <select id="fanSpeedSelect" onchange="setFanSpeed(this.value)" class="w-full bg-obsidian border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-emerald-500">
+                                <option value="AUTO">AUTO (PID)</option>
+                                <option value="LOW">LOW (650 RPM)</option>
+                                <option value="MED">MED (980 RPM)</option>
+                                <option value="HIGH" selected>HIGH (1320 RPM)</option>
+                                <option value="TURBO">TURBO (1650 RPM)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-mono uppercase text-slate-400 block mb-1" data-i18n="lbl_louver">3D LOUVER DAMPER</span>
+                            <select id="louverSelect" onchange="setLouverMode(this.value)" class="w-full bg-obsidian border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-emerald-500">
+                                <option value="SWING" selected>AUTO SWING (0-75°)</option>
+                                <option value="15">FIXED 15° (HORIZ)</option>
+                                <option value="45">FIXED 45° (MID)</option>
+                                <option value="75">FIXED 75° (DOWN)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hardware Protocol Selector & Live Frame Terminal -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[10px] font-mono uppercase text-slate-400" data-i18n="lbl_proto_bridge">ESP32-C3 HARDWARE BRIDGE</span>
+                        <span class="text-[10px] font-mono text-emerald-400">TX READY</span>
+                    </div>
+                    <select id="protocolSelect" onchange="changeHardwareProtocol(this.value)" class="w-full bg-obsidian border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-mono text-cyan-300 mb-2.5 focus:outline-none focus:border-cyan-500">
+                        <option value="RMT_IR">GPIO4 RMT Raw IR Blaster (38kHz Carrier)</option>
+                        <option value="MODBUS_RTU">GPIO6/7 RS485 Modbus RTU (9600 8N1)</option>
+                        <option value="UART_CN105">GPIO20/21 Direct UART CN105/S21 Bridge</option>
+                    </select>
+
+                    <!-- Live Hex / Pulse Inspector Log -->
+                    <div class="bg-obsidian border border-slate-800 rounded-lg p-2 font-mono text-[10px] space-y-1 h-28 overflow-y-auto" id="protocolTerminal">
+                        <div class="text-slate-500">// ESP32-C3 RMT & Modbus Frame Logger</div>
+                        <div class="text-emerald-400">[SYS] RMT Channel 0 initialized on GPIO4</div>
+                        <div class="text-cyan-300">[TX 14ms] 0x23CB26010024030B8A (22.0°C COOL)</div>
+                    </div>
+                </div>
+
+                <!-- SUSTAINABLE INNOVATION (INOVASI BERKELANJUTAN) -->
+                <div class="bg-emerald-950/20 border border-emerald-500/30 rounded-xl p-3 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-1.5">
+                            <i data-lucide="sprout" class="w-4 h-4 text-emerald-400"></i>
+                            <h3 class="text-xs font-mono font-bold text-emerald-300 uppercase" data-i18n="sust_title">Sustainable Eco-AI Engine</h3>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="chkEnthalpyAI" onchange="toggleEnthalpyOptimizer(this.checked)" class="sr-only peer" checked>
+                            <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-500"></div>
+                        </label>
+                    </div>
+
+                    <p class="text-[11px] text-slate-300 leading-snug" data-i18n="sust_desc">
+                        Adaptive Dew-Point & Enthalpy PID prevents overcooling by balancing Wet-Bulb humidity and harvesting condensate water.
+                    </p>
+
+                    <div class="grid grid-cols-3 gap-1.5 pt-1">
+                        <div class="bg-obsidian/80 border border-slate-800 rounded-lg p-2 text-center">
+                            <span class="text-[9px] font-mono text-slate-400 block" data-i18n="sust_energy">ENERGY SAVED</span>
+                            <span class="font-mono text-xs font-bold text-emerald-400" id="sustEnergyVal">18.4%</span>
+                        </div>
+                        <div class="bg-obsidian/80 border border-slate-800 rounded-lg p-2 text-center">
+                            <span class="text-[9px] font-mono text-slate-400 block" data-i18n="sust_water">WATER HARVEST</span>
+                            <span class="font-mono text-xs font-bold text-cyan-400" id="sustWaterVal">4.8 L/d</span>
+                        </div>
+                        <div class="bg-obsidian/80 border border-slate-800 rounded-lg p-2 text-center">
+                            <span class="text-[9px] font-mono text-slate-400 block" data-i18n="sust_co2">CO₂ OFFSET</span>
+                            <span class="font-mono text-xs font-bold text-emerald-300" id="sustCo2Val">-3.2 kg</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-1 border-t border-emerald-500/20">
+                        <span data-i18n="sust_idr">Est. Cost Reduction:</span>
+                        <span class="text-emerald-300 font-bold" id="sustIdrVal">Rp 142.500 / bln</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Firmware Tag -->
+            <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] font-mono text-slate-500">
+                <span>ESP-IDF v5.1.2 // LittleFS OK</span>
+                <span class="text-emerald-400">WDT: ACTIVE</span>
+            </div>
+        </aside>
+
+        <!-- ==================== RIGHT DOCKED HUD: REAL-TIME TELEMETRY & FAULT INJECTOR ==================== -->
+        <aside id="rightDrawer" class="fixed lg:static inset-y-14 right-0 z-30 w-80 sm:w-96 lg:w-80 xl:w-96 hud-panel border-l border-slate-800/90 flex flex-col justify-between overflow-y-auto transition-transform duration-300 translate-x-full lg:translate-x-0 p-3.5 gap-3.5 ml-auto">
+            
+            <div class="space-y-3.5">
+                <!-- Panel Header -->
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i>
+                        <h2 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-200" data-i18n="right_title">Thermodynamics & Telemetry</h2>
+                    </div>
+                    <button onclick="toggleMobileDrawer('right')" class="lg:hidden text-slate-400 hover:text-white">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <!-- Return vs Supply Air & Delta-T Split Matrix -->
+                <div class="grid grid-cols-3 gap-2">
+                    <!-- Return Air (Intake) -->
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+                        <span class="text-[9px] font-mono uppercase text-slate-400 block" data-i18n="tel_return">RETURN INTAKE</span>
+                        <div class="font-mono text-lg font-bold text-amber-400 mt-0.5" id="telReturnTemp">28.4°C</div>
+                        <span class="text-[10px] font-mono text-slate-400" id="telReturnRh">RH: 64.2%</span>
+                    </div>
+                    <!-- Supply Air (Discharge) -->
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5">
+                        <span class="text-[9px] font-mono uppercase text-slate-400 block" data-i18n="tel_supply">SUPPLY OUTLET</span>
+                        <div class="font-mono text-lg font-bold text-cyan-400 mt-0.5" id="telSupplyTemp">17.6°C</div>
+                        <span class="text-[10px] font-mono text-slate-400" id="telDewPoint">Dew: 14.1°C</span>
+                    </div>
+                    <!-- Delta-T Enthalpy Split -->
+                    <div id="deltaTCard" class="bg-slate-900/90 border border-emerald-500/40 rounded-xl p-2.5">
+                        <span class="text-[9px] font-mono uppercase text-emerald-300 block">ΔT SPLIT</span>
+                        <div class="font-mono text-lg font-bold text-emerald-400 mt-0.5" id="telDeltaT">10.8°C</div>
+                        <span class="text-[10px] font-mono text-emerald-400" id="telDeltaStatus">OPTIMAL</span>
+                    </div>
+                </div>
+
+                <!-- Live Dual-Trace Telemetry Oscilloscope Chart (Canvas) -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-[10px] font-mono uppercase text-slate-400" data-i18n="chart_title">LIVE ΔT & COMPRESSOR POWER</span>
+                        <div class="flex items-center gap-2 text-[9px] font-mono">
+                            <span class="flex items-center gap-1 text-cyan-400"><span class="w-2 h-2 rounded-full bg-cyan-400"></span>Supply °C</span>
+                            <span class="flex items-center gap-1 text-amber-400"><span class="w-2 h-2 rounded-full bg-amber-400"></span>Watts</span>
+                        </div>
+                    </div>
+                    <canvas id="telemetryChart" class="w-full h-28 bg-obsidian rounded-lg border border-slate-800/80"></canvas>
+                </div>
+
+                <!-- Electrical & Compressor Vibration Matrix (PZEM-004T + SCT-013 + MEMS) -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-2.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] font-mono uppercase text-slate-400" data-i18n="elec_title">SCT-013 CT CLAMP & MEMS SENSOR</span>
+                        <span class="text-[10px] font-mono text-cyan-400" id="telCompHz">INVERTER: 58 Hz</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 font-mono text-xs">
+                        <div class="bg-obsidian/80 border border-slate-800/90 rounded-lg p-2 flex items-center justify-between">
+                            <span class="text-slate-400 text-[10px]">POWER:</span>
+                            <span class="text-amber-400 font-bold" id="telWatts">742 W</span>
+                        </div>
+                        <div class="bg-obsidian/80 border border-slate-800/90 rounded-lg p-2 flex items-center justify-between">
+                            <span class="text-slate-400 text-[10px]">CURRENT:</span>
+                            <span class="text-slate-200 font-bold" id="telAmps">3.48 A</span>
+                        </div>
+                        <div class="bg-obsidian/80 border border-slate-800/90 rounded-lg p-2 flex items-center justify-between">
+                            <span class="text-slate-400 text-[10px]">VOLTAGE:</span>
+                            <span class="text-slate-200" id="telVolts">221.4 V</span>
+                        </div>
+                        <div class="bg-obsidian/80 border border-slate-800/90 rounded-lg p-2 flex items-center justify-between">
+                            <span class="text-slate-400 text-[10px]">VIBRATION:</span>
+                            <span class="text-emerald-400" id="telVibration">1.12 mm/s</span>
+                        </div>
+                    </div>
+
+                    <!-- Predictive Health Bars: Filter Fouling & Condensate Level -->
+                    <div class="space-y-2 pt-1">
+                        <div>
+                            <div class="flex justify-between text-[10px] font-mono mb-1">
+                                <span class="text-slate-400" data-i18n="bar_filter">FILTER STATIC IMPEDANCE (FOULING)</span>
+                                <span class="text-emerald-400" id="barFilterVal">14% (CLEAN)</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-obsidian rounded-full overflow-hidden">
+                                <div id="barFilterFill" class="h-full bg-emerald-400 transition-all duration-300" style="width: 14%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-[10px] font-mono mb-1">
+                                <span class="text-slate-400" data-i18n="bar_condensate">CONDENSATE DRAIN PAN LEVEL</span>
+                                <span class="text-cyan-400" id="barDrainVal">22% (NORMAL)</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-obsidian rounded-full overflow-hidden">
+                                <div id="barDrainFill" class="h-full bg-cyan-400 transition-all duration-300" style="width: 22%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interactive Digital Twin Anomaly / Fault Stress-Test Injector -->
+                <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-1.5">
+                            <i data-lucide="flask-conical" class="w-3.5 h-3.5 text-amber-400"></i>
+                            <span class="text-[10px] font-mono font-bold uppercase text-slate-300" data-i18n="fault_title">3D Fault & Anomaly Simulator</span>
+                        </div>
+                        <button onclick="injectFault('NONE')" class="text-[10px] font-mono text-emerald-400 hover:underline" data-i18n="fault_reset">Reset Normal</button>
+                    </div>
+                    <div class="grid grid-cols-1 gap-1.5">
+                        <button onclick="injectFault('FILTER_CLOG')" id="btnFault-FILTER_CLOG" class="fault-btn text-left px-2.5 py-1.5 rounded-lg bg-obsidian hover:bg-slate-800/80 border border-slate-800 text-[11px] font-mono text-slate-300 flex items-center justify-between transition">
+                            <span>1. Simulate Clogged Air Filter (ΔP Drop)</span>
+                            <i data-lucide="wind" class="w-3.5 h-3.5 text-amber-400"></i>
+                        </button>
+                        <button onclick="injectFault('FREON_LEAK')" id="btnFault-FREON_LEAK" class="fault-btn text-left px-2.5 py-1.5 rounded-lg bg-obsidian hover:bg-slate-800/80 border border-slate-800 text-[11px] font-mono text-slate-300 flex items-center justify-between transition">
+                            <span>2. Simulate Refrigerant Leak (Low ΔT & Icing)</span>
+                            <i data-lucide="thermometer-snowflake" class="w-3.5 h-3.5 text-cyan-400"></i>
+                        </button>
+                        <button onclick="injectFault('DRAIN_BLOCK')" id="btnFault-DRAIN_BLOCK" class="fault-btn text-left px-2.5 py-1.5 rounded-lg bg-obsidian hover:bg-slate-800/80 border border-slate-800 text-[11px] font-mono text-slate-300 flex items-center justify-between transition">
+                            <span>3. Simulate Condensate Overflow Alarm</span>
+                            <i data-lucide="alert-octagon" class="w-3.5 h-3.5 text-rose-400"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Node Uptime -->
+            <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] font-mono text-slate-500">
+                <span>UPTIME: <strong class="text-slate-300" id="hudUptime">14d 08:42:19</strong></span>
+                <span>TEMP SOC: <strong class="text-emerald-400">41.2°C</strong></span>
+            </div>
+        </aside>
+
     </main>
 
-    <!-- RIGHT SIDEBAR: REMOTE COMMAND & LIVE FRAME TERMINAL -->
-    <aside id="panel-control" class="w-full md:w-80 lg:w-88 border-l border-slate-800/80 bg-panel/85 backdrop-blur-md z-20 flex flex-col justify-between overflow-y-auto p-4 space-y-4 absolute md:static inset-0 hidden md:flex">
-      <div class="space-y-4">
-        <!-- Master Power & Setpoint Control -->
-        <div class="glass-card p-4 rounded-xl border border-slate-800/90 space-y-4">
-          <div class="flex items-center justify-between">
-            <div>
-              <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 block">Kendali Jarak Jauh</span>
-              <span id="status-ac-power" class="text-xs font-mono text-emerald-400">STATUS: RUNNING NORMAL</span>
-            </div>
-            <button onclick="window.AeroApp.togglePower()" id="btn-power" class="w-10 h-10 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 transition-all cursor-pointer">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            </button>
-          </div>
-
-          <!-- Target Temperature Dial -->
-          <div class="flex items-center justify-between bg-slate-900/90 p-3 rounded-xl border border-slate-800">
-            <button onclick="window.AeroApp.adjustTemp(-0.5)" class="w-10 h-10 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-mono text-lg font-bold transition-all cursor-pointer">-</button>
-            <div class="text-center font-mono">
-              <span class="text-[10px] text-slate-400 uppercase block">TARGET SETPOINT</span>
-              <span id="val-setpoint" class="text-3xl font-bold text-white tracking-tight">21.0°C</span>
-            </div>
-            <button onclick="window.AeroApp.adjustTemp(0.5)" class="w-10 h-10 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-mono text-lg font-bold transition-all cursor-pointer">+</button>
-          </div>
-
-          <!-- Operating Mode -->
-          <div>
-            <label class="text-[11px] font-mono uppercase text-slate-400 block mb-1.5">Mode Operasi Kompresor</label>
-            <div class="grid grid-cols-4 gap-1.5 font-mono text-xs">
-              <button onclick="window.AeroApp.setMode('COOL')" id="mode-COOL" class="mode-btn active py-2 rounded-lg border border-cyan-500/50 bg-cyan-500/20 text-cyan-300 font-semibold">COOL</button>
-              <button onclick="window.AeroApp.setMode('DRY')" id="mode-DRY" class="mode-btn py-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-400">DRY</button>
-              <button onclick="window.AeroApp.setMode('FAN')" id="mode-FAN" class="mode-btn py-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-400">FAN</button>
-              <button onclick="window.AeroApp.setMode('ECO')" id="mode-ECO" class="mode-btn py-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-400">ECO</button>
-            </div>
-          </div>
-
-          <!-- Fan Speed & Louver Angle -->
-          <div class="space-y-3">
-            <div>
-              <div class="flex justify-between text-[11px] font-mono mb-1">
-                <span class="text-slate-400">Kecepatan Blower (RPM)</span>
-                <span id="val-fan-rpm" class="text-cyan-300">HIGH (1,280 RPM)</span>
-              </div>
-              <input type="range" min="1" max="4" value="3" oninput="window.AeroApp.setFanSpeed(this.value)" class="w-full accent-emerald-400 cursor-pointer" />
+    <!-- ==================== ESP32-C3 SUPERMINI REMOTE SETUP & PINOUT MODAL ==================== -->
+    <div id="provisionModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6">
+        <div class="hud-panel hud-panel-emerald w-full max-w-4xl rounded-2xl border border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
+            
+            <!-- Modal Header -->
+            <div class="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                        <i data-lucide="cpu" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-mono font-bold text-sm text-white uppercase">ESP32-C3 SuperMini Remote Provisioning & Hardware Pinout</h3>
+                        <p class="text-[11px] font-mono text-slate-400">Over-The-Air (OTA) Parameter Sync, Universal IR Sniffer & Firmware Generator</p>
+                    </div>
+                </div>
+                <button onclick="closeProvisionModal()" class="text-slate-400 hover:text-white p-1.5 rounded-lg bg-slate-800">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
             </div>
 
-            <div>
-              <div class="flex justify-between text-[11px] font-mono mb-1">
-                <span class="text-slate-400">Sudut Bukaan Swing Louver 3D</span>
-                <span id="val-louver" class="text-emerald-400">45° (Auto Sweep)</span>
-              </div>
-              <input type="range" min="15" max="85" value="45" oninput="window.AeroApp.setLouverAngle(this.value)" class="w-full accent-emerald-400 cursor-pointer" />
+            <!-- Modal Tabs -->
+            <div class="px-5 pt-2.5 bg-slate-900/60 border-b border-slate-800 flex gap-2 overflow-x-auto">
+                <button onclick="switchModalTab('pinout')" id="tabBtn-pinout" class="modal-tab-btn px-3.5 py-2 text-xs font-mono font-bold border-b-2 border-emerald-400 text-emerald-400">
+                    1. SuperMini Pinout & Bus
+                </button>
+                <button onclick="switchModalTab('irlearn')" id="tabBtn-irlearn" class="modal-tab-btn px-3.5 py-2 text-xs font-mono font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+                    2. Universal IR Sniffer (RMT)
+                </button>
+                <button onclick="switchModalTab('network')" id="tabBtn-network" class="modal-tab-btn px-3.5 py-2 text-xs font-mono font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+                    3. MQTT / Modbus & Watchdog
+                </button>
+                <button onclick="switchModalTab('firmware')" id="tabBtn-firmware" class="modal-tab-btn px-3.5 py-2 text-xs font-mono font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+                    4. Export C++ Firmware Config
+                </button>
             </div>
-          </div>
+
+            <!-- Modal Body Content -->
+            <div class="p-5 overflow-y-auto flex-1 space-y-4">
+
+                <!-- TAB 1: INTERACTIVE ESP32-C3 SUPERMINI PINOUT -->
+                <div id="tabContent-pinout" class="grid grid-cols-1 lg:grid-cols-2 gap-5 items-center">
+                    <!-- Visual SVG Diagram of ESP32-C3 SuperMini 2x8 Header -->
+                    <div class="bg-obsidian border border-slate-800 rounded-xl p-4 flex flex-col items-center">
+                        <span class="text-[10px] font-mono text-slate-400 uppercase mb-2">ESP32-C3 SuperMini Footprint (22.5 x 18mm)</span>
+                        <svg viewBox="0 0 360 320" class="w-full max-w-[330px] h-auto">
+                            <!-- PCB Board -->
+                            <rect x="85" y="25" width="190" height="270" rx="12" fill="#0F172A" stroke="#10B981" stroke-width="2"/>
+                            <!-- USB-C Connector -->
+                            <rect x="140" y="10" width="80" height="26" rx="4" fill="#334155" stroke="#94A3B8" stroke-width="1.5"/>
+                            <text x="180" y="27" text-anchor="middle" fill="#E2E8F0" font-family="JetBrains Mono" font-size="9" font-weight="bold">USB-C</text>
+                            <!-- Ceramic Antenna -->
+                            <rect x="135" y="268" width="90" height="20" rx="2" fill="#1E293B" stroke="#06B6D4" stroke-width="1"/>
+                            <text x="180" y="281" text-anchor="middle" fill="#06B6D4" font-family="JetBrains Mono" font-size="8">2.4GHz RF ANT</text>
+                            <!-- ESP32-C3 RISC-V SoC -->
+                            <rect x="130" y="115" width="100" height="90" rx="6" fill="#060911" stroke="#475569" stroke-width="1.5"/>
+                            <text x="180" y="152" text-anchor="middle" fill="#10B981" font-family="JetBrains Mono" font-size="11" font-weight="bold">ESP32-C3</text>
+                            <text x="180" y="168" text-anchor="middle" fill="#94A3B8" font-family="JetBrains Mono" font-size="8">RISC-V 160MHz</text>
+                            <text x="180" y="182" text-anchor="middle" fill="#64748B" font-family="JetBrains Mono" font-size="7">4MB FLASH</text>
+                            <!-- Boot & Reset Tactile Buttons -->
+                            <rect x="108" y="60" width="22" height="16" rx="2" fill="#334155"/>
+                            <text x="119" y="55" text-anchor="middle" fill="#94A3B8" font-family="JetBrains Mono" font-size="7">BOOT(9)</text>
+                            <rect x="230" y="60" width="22" height="16" rx="2" fill="#334155"/>
+                            <text x="241" y="55" text-anchor="middle" fill="#94A3B8" font-family="JetBrains Mono" font-size="7">RST</text>
+                            <!-- Blue Status LED GPIO8 -->
+                            <circle cx="180" cy="85" r="5" fill="#06B6D4"/>
+                            <text x="180" y="102" text-anchor="middle" fill="#06B6D4" font-family="JetBrains Mono" font-size="7">LED (GPIO8)</text>
+
+                            <!-- LEFT HEADER PINS (8 PINS) -->
+                            <g font-family="JetBrains Mono" font-size="9">
+                                <circle cx="98" cy="70" r="5" fill="#F59E0B"/><text x="75" y="73" text-anchor="end" fill="#FBBF24">GPIO5 (IR RX)</text>
+                                <circle cx="98" cy="95" r="5" fill="#06B6D4"/><text x="75" y="98" text-anchor="end" fill="#22D3EE">GPIO6 (RS485 RO)</text>
+                                <circle cx="98" cy="120" r="5" fill="#06B6D4"/><text x="75" y="123" text-anchor="end" fill="#22D3EE">GPIO7 (RS485 DI)</text>
+                                <circle cx="98" cy="145" r="5" fill="#10B981"/><text x="75" y="148" text-anchor="end" fill="#34D399">GPIO8 (STATUS)</text>
+                                <circle cx="98" cy="170" r="5" fill="#64748B"/><text x="75" y="173" text-anchor="end" fill="#94A3B8">GPIO9 (BOOT)</text>
+                                <circle cx="98" cy="195" r="5" fill="#10B981"/><text x="75" y="198" text-anchor="end" fill="#34D399">GPIO10 (DRAIN)</text>
+                                <circle cx="98" cy="220" r="5" fill="#A855F7"/><text x="75" y="223" text-anchor="end" fill="#C084FC">GPIO20 (UART RX)</text>
+                                <circle cx="98" cy="245" r="5" fill="#A855F7"/><text x="75" y="248" text-anchor="end" fill="#C084FC">GPIO21 (UART TX)</text>
+                            </g>
+
+                            <!-- RIGHT HEADER PINS (8 PINS) -->
+                            <g font-family="JetBrains Mono" font-size="9">
+                                <circle cx="262" cy="70" r="5" fill="#EF4444"/><text x="285" y="73" text-anchor="start" fill="#F87171">5V VBUS IN</text>
+                                <circle cx="262" cy="95" r="5" fill="#475569"/><text x="285" y="98" text-anchor="start" fill="#94A3B8">GND</text>
+                                <circle cx="262" cy="120" r="5" fill="#EF4444"/><text x="285" y="123" text-anchor="start" fill="#FB923C">3V3 LDO OUT</text>
+                                <circle cx="262" cy="145" r="5" fill="#10B981"/><text x="285" y="148" text-anchor="start" fill="#34D399">GPIO4 (RMT IR TX)</text>
+                                <circle cx="262" cy="170" r="5" fill="#F59E0B"/><text x="285" y="173" text-anchor="start" fill="#FBBF24">GPIO3 (ADC CT)</text>
+                                <circle cx="262" cy="195" r="5" fill="#06B6D4"/><text x="285" y="198" text-anchor="start" fill="#22D3EE">GPIO2 (1-WIRE ΔT)</text>
+                                <circle cx="262" cy="220" r="5" fill="#10B981"/><text x="285" y="223" text-anchor="start" fill="#34D399">GPIO1 (I2C SCL)</text>
+                                <circle cx="262" cy="245" r="5" fill="#10B981"/><text x="285" y="248" text-anchor="start" fill="#34D399">GPIO0 (I2C SDA)</text>
+                            </g>
+                        </svg>
+                    </div>
+
+                    <!-- Pin Assignment Hardware Mapping Table -->
+                    <div class="space-y-2.5">
+                        <h4 class="text-xs font-mono font-bold text-white uppercase">Active Peripheral Multiplexing</h4>
+                        <div class="space-y-2 text-xs font-mono">
+                            <div class="p-2.5 rounded-lg bg-obsidian border border-slate-800 flex items-center justify-between">
+                                <div>
+                                    <span class="text-emerald-400 font-bold">GPIO4 (RMT_SIG_OUT0)</span>
+                                    <p class="text-[11px] text-slate-400">Dual 940nm High-Power IR LED Array via AO3400 MOSFET</p>
+                                </div>
+                                <span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 text-[10px]">38kHz PWM</span>
+                            </div>
+                            <div class="p-2.5 rounded-lg bg-obsidian border border-slate-800 flex items-center justify-between">
+                                <div>
+                                    <span class="text-cyan-400 font-bold">GPIO2 (OneWire Bus)</span>
+                                    <p class="text-[11px] text-slate-400">Dual DS18B20 Waterproof Probes (Return & Supply Air ΔT)</p>
+                                </div>
+                                <span class="px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 text-[10px]">12-Bit CRC</span>
+                            </div>
+                            <div class="p-2.5 rounded-lg bg-obsidian border border-slate-800 flex items-center justify-between">
+                                <div>
+                                    <span class="text-amber-400 font-bold">GPIO3 (ADC1_CH3)</span>
+                                    <p class="text-[11px] text-slate-400">SCT-013-030 Non-Invasive CT Clamp (Compressor Current)</p>
+                                </div>
+                                <span class="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 text-[10px]">1000Hz RMS</span>
+                            </div>
+                            <div class="p-2.5 rounded-lg bg-obsidian border border-slate-800 flex items-center justify-between">
+                                <div>
+                                    <span class="text-purple-400 font-bold">GPIO6/7 + GPIO0/1</span>
+                                    <p class="text-[11px] text-slate-400">MAX485 Modbus RTU + MPU6050 MEMS Vibration FFT</p>
+                                </div>
+                                <span class="px-2 py-0.5 rounded bg-purple-500/15 text-purple-300 text-[10px]">I2C + UART1</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: UNIVERSAL IR SNIFFER / LEARNING MODE -->
+                <div id="tabContent-irlearn" class="hidden space-y-4">
+                    <div class="bg-obsidian border border-slate-800 rounded-xl p-4">
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                            <div>
+                                <h4 class="text-xs font-mono font-bold text-white">GPIO5 TSOP38238 Raw IR Pulse Sniffer</h4>
+                                <p class="text-[11px] font-mono text-slate-400">Point any OEM AC Remote at the ESP32-C3 node to decode carrier timings & save to LittleFS.</p>
+                            </div>
+                            <button onclick="triggerIRLearningCapture()" id="btnCaptureIR" class="px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-obsidian font-mono font-bold text-xs flex items-center gap-1.5 transition">
+                                <i data-lucide="radio" class="w-4 h-4"></i> Trigger RMT RX Capture
+                            </button>
+                        </div>
+
+                        <!-- Simulated Oscilloscope Carrier Waveform -->
+                        <canvas id="irScopeCanvas" class="w-full h-28 bg-slate-950 rounded-lg border border-slate-800 mb-3"></canvas>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 font-mono text-xs">
+                            <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+                                <span class="text-[10px] text-slate-400 block">DETECTED VENDOR PROTOCOL</span>
+                                <span class="text-emerald-400 font-bold" id="irVendorText">DAIKIN_ARC480A (152-Bit)</span>
+                            </div>
+                            <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 md:col-span-2">
+                                <span class="text-[10px] text-slate-400 block">DECODED HEX PAYLOAD (SAVED TO /littlefs/ir_presets.json)</span>
+                                <span class="text-cyan-300 font-bold break-all" id="irHexDecoded">0x11DA2700C50000D711DA27004200005411DA270000082C00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: NETWORK, MQTT & WATCHDOG PROVISIONING -->
+                <div id="tabContent-network" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
+                    <div class="bg-obsidian border border-slate-800 rounded-xl p-4 space-y-3">
+                        <h4 class="text-emerald-400 font-bold uppercase">Wi-Fi & MQTT Telemetry Broker</h4>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-1">PLANT WI-FI SSID</label>
+                            <input type="text" id="cfgSsid" value="IND_HVAC_TELEMETRY_2.4G" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-1">MQTT / WSS BROKER ENDPOINT</label>
+                            <input type="text" id="cfgBroker" value="wss://telemetry.aerotwin-iot.id:8883/mqtt" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-cyan-300">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-1">TELEMETRY PUBLISH INTERVAL (MS)</label>
+                            <input type="number" id="cfgInterval" value="2000" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200">
+                        </div>
+                    </div>
+
+                    <div class="bg-obsidian border border-slate-800 rounded-xl p-4 space-y-3">
+                        <h4 class="text-cyan-400 font-bold uppercase">RS485 Modbus & Hardware Failsafe</h4>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[10px] text-slate-400 block mb-1">MODBUS SLAVE ID</label>
+                                <input type="number" id="cfgSlaveId" value="1" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200">
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-slate-400 block mb-1">BAUDRATE (UART1)</label>
+                                <select id="cfgBaud" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200">
+                                    <option value="9600" selected>9600 8N1</option>
+                                    <option value="19200">19200 8E1</option>
+                                    <option value="38400">38400 8N1</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block mb-1">HARDWARE TASK WATCHDOG (TWDT SECONDS)</label>
+                            <input type="number" id="cfgWdt" value="15" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-emerald-400">
+                        </div>
+                        <div class="pt-2">
+                            <button onclick="pushOTAConfig()" class="w-full py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold transition">
+                                Push Config via MQTT RPC to ESP32-C3
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 4: AUTO-GENERATED C++ FIRMWARE HEADER EXPORT -->
+                <div id="tabContent-firmware" class="hidden space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-mono text-slate-300">Auto-Generated <code class="text-emerald-400">aero_c3_config.h</code> (ESP-IDF / PlatformIO Ready)</span>
+                        <div class="flex items-center gap-2">
+                            <button onclick="copyFirmwareCode()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-mono text-cyan-300 border border-slate-700 flex items-center gap-1.5">
+                                <i data-lucide="copy" class="w-3.5 h-3.5"></i> <span id="copyBtnText">Copy Header</span>
+                            </button>
+                        </div>
+                    </div>
+                    <pre id="firmwareCodeBlock" class="bg-obsidian border border-slate-800 rounded-xl p-4 font-mono text-[11px] text-emerald-300 overflow-x-auto leading-relaxed select-all"></pre>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer Status -->
+            <div class="px-5 py-3 border-t border-slate-800 bg-slate-900/90 flex items-center justify-between text-xs font-mono">
+                <span id="modalStatusMsg" class="text-slate-400">STATUS: Connected to ESP32-C3 SuperMini via WebSocket Secure</span>
+                <button onclick="closeProvisionModal()" class="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200">Close</button>
+            </div>
         </div>
-
-        <!-- Hardware Bridge Protocol Selector -->
-        <div class="glass-card p-3.5 rounded-xl border border-slate-800/90 space-y-2.5">
-          <label class="text-[11px] font-mono uppercase text-slate-400 block">Jembatan Protokol Hardware C3</label>
-          <select id="select-protocol" onchange="window.AeroApp.setProtocol(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-emerald-500">
-            <option value="RMT_IR">GPIO4 — RMT IR Blaster 38kHz (Daikin/Gree/Panasonic)</option>
-            <option value="MODBUS_RS485">GPIO6/7 — RS485 Modbus RTU (9600 8N1 Slave ID 01)</option>
-            <option value="UART_CN105">GPIO20/21 — Direct UART CN105 / S21 Bridge</option>
-          </select>
-
-          <!-- Live Hex Frame Terminal -->
-          <div class="bg-black/90 rounded-lg p-2.5 border border-slate-800 font-mono text-[11px] space-y-1.5">
-            <div class="flex items-center justify-between text-[10px] text-slate-500 border-b border-slate-800 pb-1">
-              <span>TX PAYLOAD INSPECTOR</span>
-              <span id="tx-proto-badge" class="text-emerald-400">RMT_IR_38KHZ</span>
-            </div>
-            <div id="terminal-log" class="h-28 overflow-y-auto space-y-1 text-emerald-400/90 leading-tight"></div>
-          </div>
-        </div>
-      </div>
-
-      <button onclick="window.AeroApp.sendManualCommandSync()" class="w-full py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 font-mono text-xs font-semibold transition-all cursor-pointer">
-        ⚡ TRANSMIT SYNC PACKET KE ESP32-C3
-      </button>
-    </aside>
-  </div>
-
-  <!-- MOBILE BOTTOM NAVIGATION BAR -->
-  <nav class="md:hidden h-14 border-t border-slate-800 bg-panel px-4 flex items-center justify-around z-30 shrink-0 font-mono text-xs">
-    <button onclick="window.AeroApp.switchMobileView('3d')" id="mnav-3d" class="text-emerald-400 font-semibold flex flex-col items-center">
-      <span>3D Twin</span>
-    </button>
-    <button onclick="window.AeroApp.switchMobileView('telemetry')" id="mnav-telemetry" class="text-slate-400 flex flex-col items-center">
-      <span>Sensor & Eco</span>
-    </button>
-    <button onclick="window.AeroApp.switchMobileView('control')" id="mnav-control" class="text-slate-400 flex flex-col items-center">
-      <span>Remote AC</span>
-    </button>
-    <button onclick="window.AeroApp.toggleSetupModal(true)" class="text-cyan-400 flex flex-col items-center">
-      <span>Setup C3</span>
-    </button>
-  </nav>
-
-  <!-- ESP32-C3 SUPERMINI REMOTE PROVISIONING & SETUP MODAL -->
-  <div id="modal-setup" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 md:p-6">
-    <div class="bg-panel border border-slate-700/80 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-      <!-- Modal Header -->
-      <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
-        <div>
-          <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">RISC-V 160MHz SINGLE-CORE</span>
-          <h2 class="text-base md:text-lg font-bold text-white mt-0.5">Remote Provisioning & Pinout Setup — ESP32-C3 SuperMini</h2>
-        </div>
-        <button onclick="window.AeroApp.toggleSetupModal(false)" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono">✕</button>
-      </div>
-
-      <!-- Modal Content -->
-      <div class="p-5 overflow-y-auto grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <!-- Left Column: Interactive ESP32-C3 SuperMini Pinout Map -->
-        <div class="space-y-4">
-          <h3 class="text-xs font-mono uppercase tracking-wider text-emerald-400">1. Arsitektur Pinout Hardware ESP32-C3 SuperMini</h3>
-          <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs space-y-2">
-            <div class="text-center text-slate-400 text-[11px] pb-2 border-b border-slate-800">USB TYPE-C (CDC JTAG / POWER 5V)</div>
-            <div class="grid grid-cols-2 gap-3 pt-1">
-              <div class="space-y-1.5">
-                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-amber-400">GPIO0 (ADC1)</span><span>SCT-013 CT</span></div>
-                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-amber-400">GPIO1 (ADC1)</span><span>Drain Level</span></div>
-                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-cyan-400">GPIO2</span><span>1-Wire DS18B20</span></div>
-                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-emerald-400">GPIO3</span><span>RMT IR RX</span></div>
-                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-emerald-400">GPIO4</span><span>RMT IR TX 38k</span></div>
-                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-purple-400">GPIO5</span><span>RS485 DE/RE</span></div>
-              </div>
-              <div class="space-y-1.5">
-                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span>5V / VBUS</span><span class="text-rose-400">PWR IN</span></div>
-                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span>GND</span><span class="text-slate-500">COMMON</span></div>
-                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-purple-400">GPIO6</span><span>RS485 TX</span></div>
-                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-purple-400">GPIO7</span><span>RS485 RX</span></div>
-                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-cyan-400">GPIO8 / 9</span><span>I2C MEMS/BME</span></div>
-                <div class="p-1.5 rounded bg-slate-900 border border-slate-800 flex justify-between"><span class="text-emerald-400">GPIO20 / 21</span><span>UART CN105</span></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Network & MQTT Failover Config -->
-          <div class="space-y-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
-            <h4 class="text-xs font-mono uppercase text-slate-300">2. Konfigurasi Jaringan, MQTT & Watchdog</h4>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs font-mono">
-              <div>
-                <label class="text-[10px] text-slate-400 block mb-1">DEVICE HOSTNAME</label>
-                <input id="cfg-hostname" type="text" value="esp32c3-hvac-pop04" oninput="window.AeroApp.updateGeneratedHeader()" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white" />
-              </div>
-              <div>
-                <label class="text-[10px] text-slate-400 block mb-1">MQTT BROKER URI</label>
-                <input id="cfg-mqtt" type="text" value="mqtt://10.20.4.10:1883" oninput="window.AeroApp.updateGeneratedHeader()" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white" />
-              </div>
-              <div>
-                <label class="text-[10px] text-slate-400 block mb-1">PROTOKOL VENDOR AC</label>
-                <select id="cfg-vendor" onchange="window.AeroApp.updateGeneratedHeader()" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white">
-                  <option value="DAIKIN_ARC">Daikin ARC480A (IR / S21)</option>
-                  <option value="MITSUBISHI_CN105">Mitsubishi Electric CN105</option>
-                  <option value="GREE_YAC">Gree / Cooper&Hunter YAC1FB</option>
-                  <option value="CRAC_MODBUS">Stulz / Liebert CRAC Modbus RTU</option>
-                </select>
-              </div>
-              <div>
-                <label class="text-[10px] text-slate-400 block mb-1">HARDWARE WDT TIMEOUT (DETIK)</label>
-                <input id="cfg-wdt" type="number" value="15" oninput="window.AeroApp.updateGeneratedHeader()" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right Column: Auto-Generated C++ Header & OTA Flash -->
-        <div class="space-y-3 flex flex-col justify-between">
-          <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <h3 class="text-xs font-mono uppercase tracking-wider text-emerald-400">3. Generator Konfigurasi `aero_c3_config.h`</h3>
-              <button onclick="window.AeroApp.copyConfigHeader()" class="text-[11px] font-mono px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 cursor-pointer">Copy Header</button>
-            </div>
-            <pre id="code-preview" class="bg-black/95 border border-slate-800 rounded-xl p-3.5 text-[11px] font-mono text-emerald-300 overflow-x-auto h-72 leading-relaxed"></pre>
-          </div>
-
-          <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 space-y-2">
-            <div class="flex justify-between text-xs font-mono">
-              <span class="text-slate-300">Push Konfigurasi via MQTT RPC / OTA</span>
-              <span id="ota-status" class="text-emerald-400">Siap Sinkronisasi</span>
-            </div>
-            <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
-              <div id="ota-bar" class="h-full bg-emerald-500 transition-all duration-300" style="width: 0%"></div>
-            </div>
-            <button onclick="window.AeroApp.triggerRemoteOtaPush()" class="w-full py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono text-xs font-bold transition-all cursor-pointer">
-              PUSH NVS CONFIG & REBOOT ESP32-C3
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
-  </div>
 
-  <!-- Application Scripts -->
+    <!-- ==================== APPLICATION LOGIC & 3D DIGITAL TWIN ENGINE ==================== -->
+    <script>
+        // ============================================================================
+        // 1. MULTI-LANGUAGE DICTIONARY (INDONESIAN & ENGLISH)
+        // ============================================================================
+        let currentLang = 'ID';
+        const i18nDict = {
+            ID: {
+                model_split: "AC Split Dinding",
+                model_cassette: "AC Cassette 4-Arah",
+                model_crac: "AC Presisi CRAC",
+                model_vrf: "Ducting VRF Sentral",
+                btn_provision: "Setup ESP32-C3",
+                cam_view: "KAMERA:",
+                cam_front: "DEPAN",
+                layer_xray: "Mode X-Ray CAD",
+                layer_cfd: "Aliran Termal CFD",
+                layer_pins: "Pin Sensor (5)",
+                left_title: "Kendali AC Universal & Bridge",
+                lbl_ac_state: "STATUS OPERASI UNIT",
+                lbl_setpoint: "TARGET SUHU SETPOINT",
+                lbl_mode: "MODE OPERASI",
+                lbl_fan: "KECEPATAN BLOWER",
+                lbl_louver: "SUDUT LOUVER 3D",
+                lbl_proto_bridge: "BRIDGE HARDWARE ESP32-C3",
+                sust_title: "Inovasi Eco-AI Berkelanjutan",
+                sust_desc: "Optimasi Entalpi & Titik Embun mencegah overcooling serta memanen air kondensasi murni.",
+                sust_energy: "HEMAT ENERGI",
+                sust_water: "PANEN AIR",
+                sust_co2: "REDUKSI CO₂",
+                sust_idr: "Estimasi Penghematan Biaya:",
+                right_title: "Termodinamika & Telemetri",
+                tel_return: "UDARA MASUK (RETURN)",
+                tel_supply: "UDARA KELUAR (SUPPLY)",
+                chart_title: "GRAFIK ΔT & DAYA KOMPRESOR",
+                elec_title: "SENSOR ARUS SCT-013 & VIBRASI MEMS",
+                bar_filter: "IMPEDANSI FILTER UDARA (DEBU)",
+                bar_condensate: "LEVEL AIR PIPA KONDENSASI",
+                fault_title: "Simulator Anomali & Fault 3D",
+                fault_reset: "Reset Normal"
+            },
+            EN: {
+                model_split: "Wall Split AC",
+                model_cassette: "4-Way Cassette",
+                model_crac: "Floor Standing CRAC",
+                model_vrf: "Central VRF Duct",
+                btn_provision: "ESP32-C3 Setup",
+                cam_view: "CAM:",
+                cam_front: "FRONT",
+                layer_xray: "X-Ray CAD",
+                layer_cfd: "CFD Thermal Flow",
+                layer_pins: "Pins (5)",
+                left_title: "Universal AC Command Bridge",
+                lbl_ac_state: "SYSTEM POWER STATE",
+                lbl_setpoint: "TARGET SETPOINT",
+                lbl_mode: "OPERATING MODE",
+                lbl_fan: "BLOWER RPM / SPEED",
+                lbl_louver: "3D LOUVER DAMPER",
+                lbl_proto_bridge: "ESP32-C3 HARDWARE BRIDGE",
+                sust_title: "Sustainable Eco-AI Engine",
+                sust_desc: "Adaptive Dew-Point & Enthalpy PID prevents overcooling and harvests distilled condensate water.",
+                sust_energy: "ENERGY SAVED",
+                sust_water: "WATER HARVEST",
+                sust_co2: "CO₂ OFFSET",
+                sust_idr: "Est. Cost Reduction:",
+                right_title: "Thermodynamics & Telemetry",
+                tel_return: "RETURN INTAKE",
+                tel_supply: "SUPPLY OUTLET",
+                chart_title: "LIVE ΔT & COMPRESSOR POWER",
+                elec_title: "SCT-013 CT CLAMP & MEMS SENSOR",
+                bar_filter: "FILTER STATIC IMPEDANCE (FOULING)",
+                bar_condensate: "CONDENSATE DRAIN PAN LEVEL",
+                fault_title: "3D Fault & Anomaly Simulator",
+                fault_reset: "Reset Normal"
+            }
+        };
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'ID' ? 'EN' : 'ID';
+            document.getElementById('langBtn').textContent = currentLang;
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18nDict[currentLang][key]) {
+                    el.textContent = i18nDict[currentLang][key];
+                }
+            });
+        }
+
+        // ============================================================================
+        // 2. CENTRAL DIGITAL TWIN STATE & TELEMETRY MODEL
+        // ============================================================================
+        const twinState = {
+            acModel: 'split',      // 'split', 'cassette', 'crac', 'vrf'
+            power: true,
+            setpoint: 22.0,
+            mode: 'COOL',          // 'COOL', 'DRY', 'FAN', 'AUTO', 'ECO'
+            fanSpeed: 'HIGH',      // 'AUTO', 'LOW', 'MED', 'HIGH', 'TURBO'
+            louverMode: 'SWING',   // 'SWING', '15', '45', '75'
+            protocol: 'RMT_IR',    // 'RMT_IR', 'MODBUS_RTU', 'UART_CN105'
+            enthalpyAI: true,
+            xrayMode: false,
+            showAirflow: true,
+            showPins: true,
+            activeFault: 'NONE',   // 'NONE', 'FILTER_CLOG', 'FREON_LEAK', 'DRAIN_BLOCK'
+            // Live calculated telemetry
+            returnTemp: 28.4,
+            returnRh: 64.2,
+            supplyTemp: 17.6,
+            deltaT: 10.8,
+            watts: 742,
+            amps: 3.48,
+            volts: 221.4,
+            vibration: 1.12,
+            filterFouling: 14,
+            drainLevel: 22,
+            uptimeSec: 1240939
+        };
+
+        // 3D Hotspots Metadata
+        const hotspotsData = [
+            {
+                id: 'P1',
+                title: 'ESP32-C3 SuperMini Core Node',
+                pinout: 'RISC-V @ 160MHz • GPIO4 (RMT TX) • GPIO6/7 (RS485)',
+                desc: 'Ultra-compact 22.5x18mm telemetry & control node. Executes hardware RMT infrared pulse synthesis, Modbus RTU polling, and Edge-PID enthalpy optimization.',
+                liveMetric: () => `RSSI: -54dBm | FREE HEAP: 248KB | 3.31V`,
+                pos: { split: [2.35, 0.2, 0.45], cassette: [2.1, 0.45, 2.1], crac: [1.45, 0.8, 0.95], vrf: [2.2, 0.3, 1.15] }
+            },
+            {
+                id: 'P2',
+                title: 'Supply & Return DS18B20 ΔT Array',
+                pinout: 'GPIO2 OneWire Digital Bus (12-Bit Resolution)',
+                desc: 'Measures real-time enthalpy split between intake return air and conditioned discharge air to detect refrigerant loss or coil icing early.',
+                liveMetric: () => `RETURN: ${twinState.returnTemp.toFixed(1)}°C | SUPPLY: ${twinState.supplyTemp.toFixed(1)}°C | ΔT: ${twinState.deltaT.toFixed(1)}°C`,
+                pos: { split: [-0.8, -0.48, 0.85], cassette: [0, -0.35, 1.35], crac: [0, 1.95, 0.6], vrf: [-1.9, 0.0, 0.7] }
+            },
+            {
+                id: 'P3',
+                title: 'SCT-013 Non-Invasive CT Clamp',
+                pinout: 'GPIO3 (ADC1_CH3) + PZEM-004T True-RMS',
+                desc: 'Samples compressor & blower current waveform at 1000Hz to track inverter load, power factor, and compressor inrush spikes.',
+                liveMetric: () => `LOAD: ${twinState.watts}W (${twinState.amps}A @ ${twinState.volts}V)`,
+                pos: { split: [1.95, -0.3, -0.25], cassette: [-1.8, 0.35, -1.8], crac: [-1.35, -1.1, 0.7], vrf: [1.6, 0.65, -0.8] }
+            },
+            {
+                id: 'P4',
+                title: 'MPU6050 MEMS Vibration Accelerometer',
+                pinout: 'GPIO0 (SDA) / GPIO1 (SCL) Fast-Mode I2C',
+                desc: 'Performs on-chip FFT vibration spectrum analysis on blower rotor bearings and compressor mounts for predictive maintenance.',
+                liveMetric: () => `RMS VELOCITY: ${twinState.vibration.toFixed(2)} mm/s (ISO-10816 NOMINAL)`,
+                pos: { split: [0.6, 0.15, 0.1], cassette: [0.3, 0.2, 0.2], crac: [0.5, -0.5, 0.3], vrf: [0.0, 0.2, 0.0] }
+            },
+            {
+                id: 'P5',
+                title: 'Capacitive Condensate & ΔP Filter Sensor',
+                pinout: 'GPIO10 Digital Float + Differential Pressure Tap',
+                desc: 'Monitors condensate drain pan water level to prevent ceiling overflow and tracks air filter static pressure drop.',
+                liveMetric: () => `DRAIN PAN: ${twinState.drainLevel}% | FILTER IMPEDANCE: ${twinState.filterFouling}%`,
+                pos: { split: [2.15, -0.75, -0.35], cassette: [1.7, -0.15, -1.7], crac: [1.2, -1.75, 0.5], vrf: [-0.8, -0.65, 0.9] }
+            }
+        ];
+
+        // ============================================================================
+        // 3. THREE.JS 3D DIGITAL TWIN ENGINE (HIGH-DPI CAD RENDERER)
+        // ============================================================================
+        let scene, camera, renderer, acRootGroup;
+        let animatedParts = {
+            louvers: [],
+            rotors: [],
+            coils: [],
+            espLed: null,
+            drainPipe: null
+        };
+        let particleSystem, particlePositions, particleVelocities, particleColors;
+        const PARTICLE_COUNT = 520;
+
+        // Camera Orbit State
+        let camSpherical = { radius: 6.4, theta: 0.45, phi: 1.18 };
+        let targetSpherical = { radius: 6.4, theta: 0.45, phi: 1.18 };
+        let camTarget = new THREE.Vector3(0, 0.1, 0);
+        let targetLookAt = new THREE.Vector3(0, 0.1, 0);
+        let isDragging = false;
+        let prevPointer = { x: 0, y: 0 };
+
+        // Shared Procedural CAD Materials
+        const cadMaterials = {
+            shell: new THREE.MeshPhysicalMaterial({
+                color: 0x1E293B,
+                metalness: 0.35,
+                roughness: 0.28,
+                clearcoat: 0.4,
+                transparent: true,
+                opacity: 0.96
+            }),
+            darkChassis: new THREE.MeshStandardMaterial({
+                color: 0x0F172A,
+                metalness: 0.6,
+                roughness: 0.4
+            }),
+            copperCoil: new THREE.MeshStandardMaterial({
+                color: 0x06B6D4,
+                emissive: 0x0891B2,
+                emissiveIntensity: 0.25,
+                metalness: 0.75,
+                roughness: 0.2
+            }),
+            louverBlade: new THREE.MeshStandardMaterial({
+                color: 0x334155,
+                metalness: 0.3,
+                roughness: 0.3
+            }),
+            rotorFan: new THREE.MeshStandardMaterial({
+                color: 0x38BDF8,
+                metalness: 0.5,
+                roughness: 0.3
+            }),
+            espPcb: new THREE.MeshStandardMaterial({
+                color: 0x059669,
+                metalness: 0.4,
+                roughness: 0.3
+            }),
+            espLedMat: new THREE.MeshBasicMaterial({
+                color: 0x10B981
+            }),
+            wireframeAccent: new THREE.LineBasicMaterial({
+                color: 0x38BDF8,
+                transparent: true,
+                opacity: 0.28
+            })
+        };
+
+        function initThreeJS() {
+            const container = document.getElementById('canvasContainer');
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x060911, 0.045);
+
+            camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.1, 100);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.15;
+            container.insertBefore(renderer.domElement, container.firstChild);
+
+            // Studio Engineering Lighting
+            const hemiLight = new THREE.HemisphereLight(0xE2E8F0, 0x090D16, 0.85);
+            scene.add(hemiLight);
+
+            const dirLight1 = new THREE.DirectionalLight(0xFFFFFF, 1.2);
+            dirLight1.position.set(6, 9, 7);
+            dirLight1.castShadow = true;
+            dirLight1.shadow.mapSize.width = 2048;
+            dirLight1.shadow.mapSize.height = 2048;
+            scene.add(dirLight1);
+
+            const cyanRimLight = new THREE.PointLight(0x06B6D4, 1.4, 12);
+            cyanRimLight.position.set(-4, 2, 3);
+            scene.add(cyanRimLight);
+
+            const emeraldRimLight = new THREE.PointLight(0x10B981, 1.1, 10);
+            emeraldRimLight.position.set(4, -1, 3);
+            scene.add(emeraldRimLight);
+
+            // Blueprint CAD Reference Floor Grid
+            const gridHelper = new THREE.GridHelper(22, 44, 0x10B981, 0x1E293B);
+            gridHelper.position.y = -2.1;
+            gridHelper.material.opacity = 0.45;
+            gridHelper.material.transparent = true;
+            scene.add(gridHelper);
+
+            // Root Group for AC Unit
+            acRootGroup = new THREE.Group();
+            scene.add(acRootGroup);
+
+            // Build Initial AC Model (Wall Split)
+            buildACGeometry('split');
+
+            // Initialize 3D Thermal CFD Particle Streamlines
+            initAirflowParticles();
+
+            // Create DOM Hotspots
+            createHotspotDOMElements();
+
+            // Bind Mouse & Touch Orbit Controls
+            bindViewportControls(renderer.domElement);
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        // Helper to add crisp CAD edge outlines to any mesh
+        function addCADEdges(mesh, colorHex = 0x38BDF8, opacity = 0.25) {
+            const edges = new THREE.EdgesGeometry(mesh.geometry, 25);
+            const line = new THREE.LineSegments(
+                edges,
+                new THREE.LineBasicMaterial({ color: colorHex, transparent: true, opacity: opacity })
+            );
+            mesh.add(line);
+        }
+
+        // Helper to build the physical ESP32-C3 SuperMini Side Enclosure on any AC unit
+        function createESP32NodeAssembly(x, y, z) {
+            const nodeGroup = new THREE.Group();
+            nodeGroup.position.set(x, y, z);
+
+            // Industrial Translucent Enclosure Box
+            const boxGeo = new THREE.BoxGeometry(0.38, 0.52, 0.24);
+            const boxMesh = new THREE.Mesh(boxGeo, cadMaterials.darkChassis);
+            addCADEdges(boxMesh, 0x10B981, 0.7);
+            nodeGroup.add(boxMesh);
+
+            // Internal ESP32-C3 SuperMini Green PCB
+            const pcbGeo = new THREE.BoxGeometry(0.24, 0.36, 0.04);
+            const pcbMesh = new THREE.Mesh(pcbGeo, cadMaterials.espPcb);
+            pcbMesh.position.z = 0.09;
+            nodeGroup.add(pcbMesh);
+
+            // Blinking Status LED Sphere
+            const ledGeo = new THREE.SphereGeometry(0.035, 12, 12);
+            const ledMesh = new THREE.Mesh(ledGeo, cadMaterials.espLedMat);
+            ledMesh.position.set(0, 0.1, 0.13);
+            nodeGroup.add(ledMesh);
+            animatedParts.espLed = ledMesh;
+
+            // External IR Blaster Emitter Dome
+            const irDomeGeo = new THREE.SphereGeometry(0.045, 16, 16);
+            const irDomeMat = new THREE.MeshStandardMaterial({ color: 0x38BDF8, emissive: 0x0284C7, emissiveIntensity: 0.6 });
+            const irDome = new THREE.Mesh(irDomeGeo, irDomeMat);
+            irDome.position.set(0, -0.26, 0);
+            nodeGroup.add(irDome);
+
+            return nodeGroup;
+        }
+
+        // ============================================================================
+        // 4. PROCEDURAL MULTI-TYPE AC 3D CAD GENERATORS
+        // ============================================================================
+        function buildACGeometry(type) {
+            // Clear existing children
+            while (acRootGroup.children.length > 0) {
+                acRootGroup.remove(acRootGroup.children[0]);
+            }
+            animatedParts.louvers = [];
+            animatedParts.rotors = [];
+            animatedParts.coils = [];
+
+            if (type === 'split') {
+                // 1. WALL-MOUNTED SPLIT AC (INDOOR EVAPORATOR)
+                const mainChassis = new THREE.Mesh(new THREE.BoxGeometry(4.4, 1.25, 1.15), cadMaterials.shell);
+                addCADEdges(mainChassis);
+                acRootGroup.add(mainChassis);
+
+                // Curved Front Bezel Lip
+                const frontPanel = new THREE.Mesh(new THREE.BoxGeometry(4.36, 0.85, 0.12), cadMaterials.shell);
+                frontPanel.position.set(0, 0.12, 0.58);
+                addCADEdges(frontPanel, 0x38BDF8, 0.35);
+                acRootGroup.add(frontPanel);
+
+                // Internal Multi-Pass Copper/Cyan Evaporator Fin Coil
+                const coilGroup = new THREE.Group();
+                for (let i = 0; i < 5; i++) {
+                    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 3.9, 16), cadMaterials.copperCoil);
+                    tube.rotation.z = Math.PI / 2;
+                    tube.position.set(0, 0.38 - i * 0.11, 0.15 - i * 0.04);
+                    coilGroup.add(tube);
+                }
+                acRootGroup.add(coilGroup);
+                animatedParts.coils.push(coilGroup);
+
+                // Internal Cross-Flow Tangential Blower Rotor
+                const rotorGroup = new THREE.Group();
+                rotorGroup.position.set(0, -0.12, -0.05);
+                const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 3.8, 20), cadMaterials.rotorFan);
+                shaft.rotation.z = Math.PI / 2;
+                addCADEdges(shaft, 0x06B6D4, 0.5);
+                rotorGroup.add(shaft);
+                acRootGroup.add(rotorGroup);
+                animatedParts.rotors.push({ mesh: rotorGroup, axis: 'x' });
+
+                // Motorized Discharge Swing Louver Blade
+                const louverPivot = new THREE.Group();
+                louverPivot.position.set(0, -0.48, 0.56);
+                const blade = new THREE.Mesh(new THREE.BoxGeometry(4.1, 0.16, 0.04), cadMaterials.louverBlade);
+                addCADEdges(blade, 0x10B981, 0.6);
+                louverPivot.add(blade);
+                acRootGroup.add(louverPivot);
+                animatedParts.louvers.push(louverPivot);
+
+                // Condensate Drain Pipe on Right Bottom
+                const drainPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.9, 12), cadMaterials.darkChassis);
+                drainPipe.position.set(2.1, -0.75, -0.35);
+                drainPipe.rotation.z = 0.25;
+                addCADEdges(drainPipe, 0x06B6D4, 0.4);
+                acRootGroup.add(drainPipe);
+
+                // Mount ESP32-C3 SuperMini Node on Right Side Panel
+                acRootGroup.add(createESP32NodeAssembly(2.35, 0.15, 0.25));
+
+            } else if (type === 'cassette') {
+                // 2. 4-WAY COMMERCIAL CEILING CASSETTE AC
+                const ceilingPanel = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.22, 4.2), cadMaterials.shell);
+                ceilingPanel.position.y = -0.2;
+                addCADEdges(ceilingPanel);
+                acRootGroup.add(ceilingPanel);
+
+                // Upper Concealed Plenum Box
+                const plenumBox = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.95, 3.4), cadMaterials.darkChassis);
+                plenumBox.position.y = 0.38;
+                addCADEdges(plenumBox, 0x38BDF8, 0.3);
+                acRootGroup.add(plenumBox);
+
+                // Internal Square Ring Evaporator Coil
+                const ringCoil = new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.16, 16, 36), cadMaterials.copperCoil);
+                ringCoil.rotation.x = Math.PI / 2;
+                ringCoil.position.y = 0.25;
+                acRootGroup.add(ringCoil);
+                animatedParts.coils.push(ringCoil);
+
+                // Central Turbo Centrifugal Impeller
+                const turboFan = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.85, 0.45, 24), cadMaterials.rotorFan);
+                turboFan.position.y = 0.2;
+                addCADEdges(turboFan, 0x06B6D4, 0.6);
+                acRootGroup.add(turboFan);
+                animatedParts.rotors.push({ mesh: turboFan, axis: 'y' });
+
+                // 4 Independent Directional Swing Louvers
+                const offsets = [
+                    { x: 0, z: 1.65, rotY: 0 },
+                    { x: 0, z: -1.65, rotY: Math.PI },
+                    { x: 1.65, z: 0, rotY: Math.PI / 2 },
+                    { x: -1.65, z: 0, rotY: -Math.PI / 2 }
+                ];
+                offsets.forEach(o => {
+                    const pivot = new THREE.Group();
+                    pivot.position.set(o.x, -0.32, o.z);
+                    pivot.rotation.y = o.rotY;
+                    const blade = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.14, 0.04), cadMaterials.louverBlade);
+                    addCADEdges(blade, 0x10B981, 0.6);
+                    pivot.add(blade);
+                    acRootGroup.add(pivot);
+                    animatedParts.louvers.push(pivot);
+                });
+
+                // ESP32-C3 Node Mounted on Corner Conduit
+                acRootGroup.add(createESP32NodeAssembly(1.9, 0.45, 1.9));
+
+            } else if (type === 'crac') {
+                // 3. FLOOR STANDING / DATA CENTER PRECISION CRAC CABINET
+                const cabinet = new THREE.Mesh(new THREE.BoxGeometry(2.6, 3.8, 1.5), cadMaterials.shell);
+                addCADEdges(cabinet);
+                acRootGroup.add(cabinet);
+
+                // Slanted V-Bank Evaporator Coils Inside
+                const vCoil = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.4, 0.8), cadMaterials.copperCoil);
+                vCoil.position.set(0, 0.4, 0);
+                addCADEdges(vCoil, 0x06B6D4, 0.5);
+                acRootGroup.add(vCoil);
+                animatedParts.coils.push(vCoil);
+
+                // Dual EC Turbine Blowers in Lower Deck
+                [-0.65, 0.65].forEach(xPos => {
+                    const turbine = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.45, 20), cadMaterials.rotorFan);
+                    turbine.rotation.x = Math.PI / 2;
+                    turbine.position.set(xPos, -0.95, 0.1);
+                    addCADEdges(turbine, 0x38BDF8, 0.6);
+                    acRootGroup.add(turbine);
+                    animatedParts.rotors.push({ mesh: turbine, axis: 'z' });
+                });
+
+                // Top Discharge Motorized Damper Blades
+                const topLouver = new THREE.Group();
+                topLouver.position.set(0, 1.75, 0.68);
+                const blade = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.22, 0.05), cadMaterials.louverBlade);
+                addCADEdges(blade, 0x10B981, 0.6);
+                topLouver.add(blade);
+                acRootGroup.add(topLouver);
+                animatedParts.louvers.push(topLouver);
+
+                // ESP32-C3 SuperMini Mounted on Right Service Frame
+                acRootGroup.add(createESP32NodeAssembly(1.45, 0.8, 0.45));
+
+            } else if (type === 'vrf') {
+                // 4. CENTRAL VRF DUCTED CHILLER AIR HANDLER
+                const ductBody = new THREE.Mesh(new THREE.BoxGeometry(4.2, 1.4, 2.2), cadMaterials.shell);
+                addCADEdges(ductBody);
+                acRootGroup.add(ductBody);
+
+                // Supply & Return Galvanized Flanges
+                const supplySpigot = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.8, 24), cadMaterials.darkChassis);
+                supplySpigot.rotation.z = Math.PI / 2;
+                supplySpigot.position.set(-2.4, 0, 0.45);
+                addCADEdges(supplySpigot, 0x06B6D4, 0.6);
+                acRootGroup.add(supplySpigot);
+
+                const coilCore = new THREE.Mesh(new THREE.BoxGeometry(0.65, 1.15, 1.85), cadMaterials.copperCoil);
+                coilCore.position.set(-0.6, 0, 0);
+                addCADEdges(coilCore, 0x06B6D4, 0.5);
+                acRootGroup.add(coilCore);
+                animatedParts.coils.push(coilCore);
+
+                const centrifugal = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.2, 20), cadMaterials.rotorFan);
+                centrifugal.rotation.x = Math.PI / 2;
+                centrifugal.position.set(0.85, 0, 0);
+                addCADEdges(centrifugal, 0x38BDF8, 0.6);
+                acRootGroup.add(centrifugal);
+                animatedParts.rotors.push({ mesh: centrifugal, axis: 'z' });
+
+                const damper = new THREE.Group();
+                damper.position.set(-2.1, 0, -0.45);
+                const damperBlade = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.9, 0.9), cadMaterials.louverBlade);
+                addCADEdges(damperBlade, 0x10B981, 0.6);
+                damper.add(damperBlade);
+                acRootGroup.add(damper);
+                animatedParts.louvers.push(damper);
+
+                acRootGroup.add(createESP32NodeAssembly(2.25, 0.25, 0.75));
+            }
+
+            // Apply current X-Ray state
+            applyXRayMaterialState();
+        }
+
+        // ============================================================================
+        // 5. REAL-TIME 3D THERMAL AIRFLOW PARTICLE SIMULATION (CFD STREAMLINES)
+        // ============================================================================
+        function initAirflowParticles() {
+            const geo = new THREE.BufferGeometry();
+            particlePositions = new Float32Array(PARTICLE_COUNT * 3);
+            particleVelocities = new Float32Array(PARTICLE_COUNT * 3);
+            particleColors = new Float32Array(PARTICLE_COUNT * 3);
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                resetSingleParticle(i);
+            }
+
+            geo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+
+            const mat = new THREE.PointsMaterial({
+                size: 0.085,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.82,
+                blending: THREE.AdditiveBlending
+            });
+
+            particleSystem = new THREE.Points(geo, mat);
+            scene.add(particleSystem);
+        }
+
+        function resetSingleParticle(i) {
+            const idx = i * 3;
+            const type = twinState.acModel;
+
+            if (type === 'split') {
+                particlePositions[idx] = (Math.random() - 0.5) * 3.8;
+                particlePositions[idx + 1] = -0.48 + (Math.random() - 0.5) * 0.1;
+                particlePositions[idx + 2] = 0.62;
+                particleVelocities[idx] = (Math.random() - 0.5) * 0.008;
+                particleVelocities[idx + 1] = -0.025 - Math.random() * 0.02;
+                particleVelocities[idx + 2] = 0.045 + Math.random() * 0.03;
+            } else if (type === 'cassette') {
+                const side = i % 4;
+                const spread = (Math.random() - 0.5) * 2.2;
+                particlePositions[idx + 1] = -0.35;
+                if (side === 0) { particlePositions[idx] = spread; particlePositions[idx + 2] = 1.65; particleVelocities[idx] = 0; particleVelocities[idx + 2] = 0.045; }
+                if (side === 1) { particlePositions[idx] = spread; particlePositions[idx + 2] = -1.65; particleVelocities[idx] = 0; particleVelocities[idx + 2] = -0.045; }
+                if (side === 2) { particlePositions[idx] = 1.65; particlePositions[idx + 2] = spread; particleVelocities[idx] = 0.045; particleVelocities[idx + 2] = 0; }
+                if (side === 3) { particlePositions[idx] = -1.65; particlePositions[idx + 2] = spread; particleVelocities[idx] = -0.045; particleVelocities[idx + 2] = 0; }
+                particleVelocities[idx + 1] = -0.035;
+            } else if (type === 'crac') {
+                particlePositions[idx] = (Math.random() - 0.5) * 2.1;
+                particlePositions[idx + 1] = 1.85;
+                particlePositions[idx + 2] = 0.6;
+                particleVelocities[idx] = (Math.random() - 0.5) * 0.01;
+                particleVelocities[idx + 1] = 0.035;
+                particleVelocities[idx + 2] = 0.04;
+            } else {
+                particlePositions[idx] = -2.5;
+                particlePositions[idx + 1] = (Math.random() - 0.5) * 0.7;
+                particlePositions[idx + 2] = 0.45 + (Math.random() - 0.5) * 0.7;
+                particleVelocities[idx] = -0.06;
+                particleVelocities[idx + 1] = (Math.random() - 0.5) * 0.01;
+                particleVelocities[idx + 2] = (Math.random() - 0.5) * 0.01;
+            }
+
+            // Color particles based on real-time Supply Air Temp & Fault State
+            const isWarmFault = twinState.activeFault === 'FREON_LEAK' || twinState.mode === 'FAN';
+            if (isWarmFault) {
+                // Amber/Warm airflow when Freon leaks
+                particleColors[idx] = 0.96;
+                particleColors[idx + 1] = 0.62;
+                particleColors[idx + 2] = 0.04;
+            } else {
+                // Crisp Cyan/Emerald conditioned airflow
+                particleColors[idx] = 0.02;
+                particleColors[idx + 1] = 0.72 + Math.random() * 0.25;
+                particleColors[idx + 2] = 0.85 + Math.random() * 0.15;
+            }
+        }
+
+        function updateAirflowParticles(speedScale, louverAngleRad) {
+            if (!particleSystem) return;
+            particleSystem.visible = twinState.showAirflow && twinState.power;
+            if (!particleSystem.visible) return;
+
+            const posAttr = particleSystem.geometry.attributes.position;
+            const colAttr = particleSystem.geometry.attributes.color;
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                const idx = i * 3;
+                particlePositions[idx] += particleVelocities[idx] * speedScale;
+                particlePositions[idx + 1] += (particleVelocities[idx + 1] - Math.sin(louverAngleRad) * 0.015) * speedScale;
+                particlePositions[idx + 2] += particleVelocities[idx + 2] * speedScale;
+
+                // Recycle particles that travel beyond 2.8 units
+                const distSq = particlePositions[idx] ** 2 + particlePositions[idx + 1] ** 2 + particlePositions[idx + 2] ** 2;
+                if (distSq > 16.5) {
+                    resetSingleParticle(i);
+                }
+            }
+            posAttr.needsUpdate = true;
+            colAttr.needsUpdate = true;
+        }
+
+        // ============================================================================
+        // 6. 3D HOTSPOTS OVERLAY & INTERACTION
+        // ============================================================================
+        let selectedHotspotId = null;
+
+        function createHotspotDOMElements() {
+            const container = document.getElementById('hotspotContainer');
+            container.innerHTML = '';
+
+            hotspotsData.forEach((pin, index) => {
+                const el = document.createElement('div');
+                el.className = 'hotspot-pin flex items-center gap-1.5';
+                el.id = `hotspot-${pin.id}`;
+                el.innerHTML = `
+                    <div class="relative flex items-center justify-center w-7 h-7">
+                        <span class="absolute inset-0 rounded-full bg-emerald-400 hotspot-pulse"></span>
+                        <span class="relative w-6 h-6 rounded-full bg-obsidian border-2 border-emerald-400 text-emerald-300 font-mono font-bold text-[10px] flex items-center justify-center shadow-lg">
+                            ${index + 1}
+                        </span>
+                    </div>
+                    <span class="hidden sm:inline-block px-2 py-0.5 rounded bg-obsidian/90 border border-slate-700 text-[10px] font-mono text-slate-200 whitespace-nowrap shadow">
+                        ${pin.title.split(' ')[0]}
+                    </span>
+                `;
+                el.onclick = (e) => {
+                    e.stopPropagation();
+                    inspectHotspot(pin);
+                };
+                container.appendChild(el);
+            });
+        }
+
+        function updateHotspotScreenPositions() {
+            const container = document.getElementById('canvasContainer');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            hotspotsData.forEach(pin => {
+                const el = document.getElementById(`hotspot-${pin.id}`);
+                if (!el) return;
+                if (!twinState.showPins) {
+                    el.style.display = 'none';
+                    return;
+                }
+
+                const coords = pin.pos[twinState.acModel] || pin.pos.split;
+                const worldVec = new THREE.Vector3(coords[0], coords[1], coords[2]);
+                worldVec.project(camera);
+
+                if (worldVec.z > 1) {
+                    el.style.display = 'none';
+                } else {
+                    el.style.display = 'flex';
+                    const x = (worldVec.x * 0.5 + 0.5) * width;
+                    const y = (-(worldVec.y * 0.5) + 0.5) * height;
+                    el.style.left = `${x}px`;
+                    el.style.top = `${y}px`;
+                }
+            });
+
+            // Update live metric inside open inspector
+            if (selectedHotspotId) {
+                const activePin = hotspotsData.find(h => h.id === selectedHotspotId);
+                if (activePin) {
+                    document.getElementById('pinInspectorLiveVal').textContent = activePin.liveMetric();
+                }
+            }
+        }
+
+        function inspectHotspot(pin) {
+            selectedHotspotId = pin.id;
+            const coords = pin.pos[twinState.acModel] || pin.pos.split;
+            targetLookAt.set(coords[0], coords[1], coords[2]);
+            targetSpherical.radius = 3.8;
+            targetSpherical.theta = coords[0] >= 0 ? 0.55 : -0.55;
+            targetSpherical.phi = 1.25;
+
+            const inspector = document.getElementById('hotspotInspector');
+            inspector.classList.remove('hidden');
+            document.getElementById('pinInspectorBadge').textContent = pin.id;
+            document.getElementById('pinInspectorTitle').textContent = pin.title;
+            document.getElementById('pinInspectorPinout').textContent = pin.pinout;
+            document.getElementById('pinInspectorDesc').textContent = pin.desc;
+            document.getElementById('pinInspectorLiveVal').textContent = pin.liveMetric();
+        }
+
+        function closeHotspotInspector() {
+            selectedHotspotId = null;
+            document.getElementById('hotspotInspector').classList.add('hidden');
+            setCameraView('iso');
+        }
+
+        // ============================================================================
+        // 7. CAMERA ORBIT CONTROLS & VIEWPORT PRESETS
+        // ============================================================================
+        function bindViewportControls(domElem) {
+            domElem.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                prevPointer = { x: e.clientX, y: e.clientY };
+            });
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const dx = e.clientX - prevPointer.x;
+                const dy = e.clientY - prevPointer.y;
+                prevPointer = { x: e.clientX, y: e.clientY };
+                targetSpherical.theta -= dx * 0.007;
+                targetSpherical.phi = Math.max(0.25, Math.min(Math.PI - 0.25, targetSpherical.phi - dy * 0.007));
+            });
+            window.addEventListener('mouseup', () => { isDragging = false; });
+
+            domElem.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                targetSpherical.radius = Math.max(2.6, Math.min(12.0, targetSpherical.radius + e.deltaY * 0.004));
+            }, { passive: false });
+
+            // Touch Support for Mobile Orbit
+            domElem.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    isDragging = true;
+                    prevPointer = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+            }, { passive: true });
+            domElem.addEventListener('touchmove', (e) => {
+                if (!isDragging || e.touches.length !== 1) return;
+                const dx = e.touches[0].clientX - prevPointer.x;
+                const dy = e.touches[0].clientY - prevPointer.y;
+                prevPointer = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                targetSpherical.theta -= dx * 0.007;
+                targetSpherical.phi = Math.max(0.25, Math.min(Math.PI - 0.25, targetSpherical.phi - dy * 0.007));
+            }, { passive: true });
+            domElem.addEventListener('touchend', () => { isDragging = false; });
+        }
+
+        function setCameraView(preset) {
+            if (preset === 'iso') {
+                targetLookAt.set(0, 0.1, 0);
+                targetSpherical = { radius: 6.4, theta: 0.48, phi: 1.18 };
+            } else if (preset === 'front') {
+                targetLookAt.set(0, 0.0, 0);
+                targetSpherical = { radius: 5.8, theta: 0.0, phi: Math.PI / 2 };
+            } else if (preset === 'esp32') {
+                inspectHotspot(hotspotsData[0]);
+            } else if (preset === 'coil') {
+                if (!twinState.xrayMode) toggleXRayMode();
+                targetLookAt.set(0, 0.2, 0.1);
+                targetSpherical = { radius: 3.9, theta: -0.25, phi: 1.15 };
+            }
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvasContainer');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        // ============================================================================
+        // 8. MAIN WEBGL ANIMATION LOOP
+        // ============================================================================
+        let clock = new THREE.Clock();
+
+        function animateLoop() {
+            requestAnimationFrame(animateLoop);
+            const elapsed = clock.getElapsedTime();
+
+            // Smooth Spherical Camera Interpolation
+            camSpherical.radius += (targetSpherical.radius - camSpherical.radius) * 0.08;
+            camSpherical.theta += (targetSpherical.theta - camSpherical.theta) * 0.08;
+            camSpherical.phi += (targetSpherical.phi - camSpherical.phi) * 0.08;
+            camTarget.lerp(targetLookAt, 0.08);
+
+            camera.position.x = camTarget.x + camSpherical.radius * Math.sin(camSpherical.phi) * Math.sin(camSpherical.theta);
+            camera.position.y = camTarget.y + camSpherical.radius * Math.cos(camSpherical.phi);
+            camera.position.z = camTarget.z + camSpherical.radius * Math.sin(camSpherical.phi) * Math.cos(camSpherical.theta);
+            camera.lookAt(camTarget);
+
+            // Determine Fan Speed Multiplier
+            const speedMap = { AUTO: 1.0, LOW: 0.55, MED: 0.85, HIGH: 1.25, TURBO: 1.75 };
+            let rpmFactor = twinState.power ? (speedMap[twinState.fanSpeed] || 1.0) : 0;
+            if (twinState.activeFault === 'FILTER_CLOG') rpmFactor *= 0.45; // Restricted airflow
+
+            // Animate Internal Blower Rotors
+            animatedParts.rotors.forEach(r => {
+                if (r.axis === 'x') r.mesh.rotation.x += 0.14 * rpmFactor;
+                if (r.axis === 'y') r.mesh.rotation.y += 0.14 * rpmFactor;
+                if (r.axis === 'z') r.mesh.rotation.z += 0.14 * rpmFactor;
+            });
+
+            // Animate Motorized Louver Angle
+            let louverRad = 0;
+            if (!twinState.power) {
+                louverRad = 0;
+            } else if (twinState.louverMode === 'SWING') {
+                louverRad = (Math.sin(elapsed * 1.6) * 0.45) + 0.45;
+            } else {
+                louverRad = (parseFloat(twinState.louverMode) * Math.PI) / 180;
+            }
+            animatedParts.louvers.forEach(pivot => {
+                pivot.rotation.x = louverRad;
+            });
+
+            // Blink ESP32-C3 SuperMini Status LED
+            if (animatedParts.espLed) {
+                const blink = Math.sin(elapsed * 6) > 0;
+                if (twinState.activeFault !== 'NONE') {
+                    cadMaterials.espLedMat.color.setHex(blink ? 0xF43F5E : 0x4C0519);
+                } else {
+                    cadMaterials.espLedMat.color.setHex(blink ? 0x10B981 : 0x064E3B);
+                }
+            }
+
+            // Update CFD Airflow Streamlines
+            updateAirflowParticles(rpmFactor, louverRad);
+
+            // Update 2D Screen Projections for 3D Pins
+            updateHotspotScreenPositions();
+
+            renderer.render(scene, camera);
+        }
+
+        // ============================================================================
+        // 9. UI CONTROLS, PROTOCOL GENERATOR & FAULT SIMULATOR
+        // ============================================================================
+        function switchACModel(modelType) {
+            twinState.acModel = modelType;
+            buildACGeometry(modelType);
+
+            // Reset particles for new AC geometry
+            for (let i = 0; i < PARTICLE_COUNT; i++) resetSingleParticle(i);
+
+            // Update Desktop & Mobile Buttons
+            ['split', 'cassette', 'crac', 'vrf'].forEach(m => {
+                const btn = document.getElementById(`btnModel-${m}`);
+                const btnMob = document.getElementById(`btnModelMob-${m}`);
+                const active = m === modelType;
+                if (btn) {
+                    btn.className = active
+                        ? 'ac-type-btn px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                        : 'ac-type-btn px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5 border border-transparent';
+                }
+                if (btnMob) {
+                    btnMob.className = active
+                        ? 'ac-type-btn-mob px-2.5 py-1 rounded text-[11px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 whitespace-nowrap'
+                        : 'ac-type-btn-mob px-2.5 py-1 rounded text-[11px] font-medium text-slate-400 whitespace-nowrap';
+                }
+            });
+
+            logProtocolCommand(`MODEL_SWITCH -> ${modelType.toUpperCase()}_PROFILE`);
+            lucide.createIcons();
+        }
+
+        function toggleXRayMode() {
+            twinState.xrayMode = !twinState.xrayMode;
+            applyXRayMaterialState();
+            const btn = document.getElementById('btnXray');
+            btn.className = twinState.xrayMode
+                ? 'px-2.5 py-1 rounded text-[11px] font-mono bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 transition flex items-center gap-1'
+                : 'px-2.5 py-1 rounded text-[11px] font-mono bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1';
+        }
+
+        function applyXRayMaterialState() {
+            cadMaterials.shell.opacity = twinState.xrayMode ? 0.18 : 0.96;
+            cadMaterials.shell.wireframe = false;
+            cadMaterials.shell.needsUpdate = true;
+        }
+
+        function toggleAirflowParticles() {
+            twinState.showAirflow = !twinState.showAirflow;
+            const btn = document.getElementById('btnAirflow');
+            btn.className = twinState.showAirflow
+                ? 'px-2.5 py-1 rounded text-[11px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 transition flex items-center gap-1'
+                : 'px-2.5 py-1 rounded text-[11px] font-mono bg-slate-800/90 text-slate-400 border border-slate-700 transition flex items-center gap-1';
+        }
+
+        function toggleHotspots() {
+            twinState.showPins = !twinState.showPins;
+            const btn = document.getElementById('btnPins');
+            btn.className = twinState.showPins
+                ? 'px-2.5 py-1 rounded text-[11px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 transition flex items-center gap-1'
+                : 'px-2.5 py-1 rounded text-[11px] font-mono bg-slate-800/90 text-slate-400 border border-slate-700 transition flex items-center gap-1';
+        }
+
+        function toggleACPower() {
+            twinState.power = !twinState.power;
+            const dot = document.getElementById('acStateDot');
+            const label = document.getElementById('acStateLabel');
+            const btn = document.getElementById('btnPower');
+
+            if (twinState.power) {
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#10B981]';
+                label.textContent = `RUNNING // ${twinState.mode}`;
+                btn.className = 'w-10 h-10 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/50 flex items-center justify-center text-emerald-400 transition shadow-lg';
+            } else {
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-600';
+                label.textContent = 'STANDBY // OFF';
+                btn.className = 'w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-slate-400 transition';
+            }
+            logProtocolCommand(`PWR_${twinState.power ? 'ON' : 'OFF'}`);
+        }
+
+        function adjustSetpoint(delta) {
+            twinState.setpoint = Math.max(16.0, Math.min(30.0, twinState.setpoint + delta));
+            document.getElementById('setpointDisplay').textContent = twinState.setpoint.toFixed(1);
+            logProtocolCommand(`SET_TEMP_${twinState.setpoint.toFixed(1)}C`);
+        }
+
+        function setACMode(mode) {
+            twinState.mode = mode;
+            ['COOL', 'DRY', 'FAN', 'AUTO', 'ECO'].forEach(m => {
+                const el = document.getElementById(`mode-${m}`);
+                if (m === mode) {
+                    el.className = 'ac-mode-btn py-1.5 rounded-lg text-[11px] font-mono font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex flex-col items-center gap-1';
+                } else {
+                    el.className = 'ac-mode-btn py-1.5 rounded-lg text-[11px] font-mono text-slate-400 hover:text-slate-200 bg-slate-800/60 border border-transparent flex flex-col items-center gap-1';
+                }
+            });
+            if (twinState.power) {
+                document.getElementById('acStateLabel').textContent = `RUNNING // ${mode}`;
+            }
+            for (let i = 0; i < PARTICLE_COUNT; i++) resetSingleParticle(i);
+            logProtocolCommand(`MODE_${mode}`);
+        }
+
+        function setFanSpeed(speed) {
+            twinState.fanSpeed = speed;
+            logProtocolCommand(`FAN_${speed}`);
+        }
+
+        function setLouverMode(val) {
+            twinState.louverMode = val;
+            logProtocolCommand(`LOUVER_${val}`);
+        }
+
+        function changeHardwareProtocol(proto) {
+            twinState.protocol = proto;
+            logProtocolCommand(`SWITCH_BUS_${proto}`);
+        }
+
+        function toggleEnthalpyOptimizer(enabled) {
+            twinState.enthalpyAI = enabled;
+            const badge = document.getElementById('ecoShiftBadge');
+            if (enabled) {
+                badge.classList.remove('hidden');
+                document.getElementById('sustEnergyVal').textContent = '21.6%';
+                document.getElementById('sustIdrVal').textContent = 'Rp 168.000 / bln';
+            } else {
+                badge.classList.add('hidden');
+                document.getElementById('sustEnergyVal').textContent = '0.0%';
+                document.getElementById('sustIdrVal').textContent = 'Rp 0 / bln';
+            }
+            logProtocolCommand(`ENTHALPY_AI_${enabled ? 'ENABLED' : 'BYPASS'}`);
+        }
+
+        // Generates realistic ESP32-C3 RMT IR Hex or RS485 Modbus RTU frames
+        function logProtocolCommand(actionLabel) {
+            const term = document.getElementById('protocolTerminal');
+            const rtt = Math.floor(11 + Math.random() * 9);
+            document.getElementById('hudRtt').textContent = `${rtt} ms`;
+
+            const tempHex = Math.round(twinState.setpoint * 2).toString(16).toUpperCase().padStart(2, '0');
+            const crcHex = Math.floor(16 + Math.random() * 239).toString(16).toUpperCase().padStart(2, '0');
+
+            let frameStr = '';
+            if (twinState.protocol === 'RMT_IR') {
+                frameStr = `[RMT_TX ${rtt}ms] 0x23CB260100${tempHex}03${crcHex} (${actionLabel})`;
+            } else if (twinState.protocol === 'MODBUS_RTU') {
+                frameStr = `[MODBUS ${rtt}ms] [01][06][00][02][00][${tempHex}][${crcHex}][9B] (${actionLabel})`;
+            } else {
+                frameStr = `[CN105_UART ${rtt}ms] FC 41 01 30 10 01 ${tempHex} ${crcHex} (${actionLabel})`;
+            }
+
+            const line = document.createElement('div');
+            line.className = 'text-cyan-300';
+            line.textContent = frameStr;
+            term.appendChild(line);
+            term.scrollTop = term.scrollHeight;
+        }
+
+        // ============================================================================
+        // 10. FAULT & ANOMALY STRESS-TEST SIMULATOR
+        // ============================================================================
+        function injectFault(faultType) {
+            twinState.activeFault = faultType;
+            const headerBadge = document.getElementById('headerFaultBadge');
+            const headerText = document.getElementById('headerFaultText');
+
+            ['FILTER_CLOG', 'FREON_LEAK', 'DRAIN_BLOCK'].forEach(f => {
+                const btn = document.getElementById(`btnFault-${f}`);
+                if (btn) {
+                    btn.className = f === faultType
+                        ? 'fault-btn text-left px-2.5 py-1.5 rounded-lg bg-rose-500/20 border border-rose-500/50 text-[11px] font-mono text-rose-300 flex items-center justify-between transition'
+                        : 'fault-btn text-left px-2.5 py-1.5 rounded-lg bg-obsidian hover:bg-slate-800/80 border border-slate-800 text-[11px] font-mono text-slate-300 flex items-center justify-between transition';
+                }
+            });
+
+            if (faultType === 'NONE') {
+                headerBadge.classList.add('hidden');
+                headerBadge.classList.remove('inline-flex');
+                cadMaterials.copperCoil.color.setHex(0x06B6D4);
+                cadMaterials.copperCoil.emissive.setHex(0x0891B2);
+            } else {
+                headerBadge.classList.remove('hidden');
+                headerBadge.classList.add('inline-flex');
+                headerText.textContent = faultType.replace('_', ' ');
+
+                if (faultType === 'FREON_LEAK') {
+                    // Evaporator coil turns warm amber
+                    cadMaterials.copperCoil.color.setHex(0xF59E0B);
+                    cadMaterials.copperCoil.emissive.setHex(0xD97706);
+                } else if (faultType === 'DRAIN_BLOCK') {
+                    cadMaterials.copperCoil.color.setHex(0xF43F5E);
+                    cadMaterials.copperCoil.emissive.setHex(0xE11D48);
+                }
+            }
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) resetSingleParticle(i);
+            logProtocolCommand(`DIAG_FAULT_${faultType}`);
+        }
+
+        // ============================================================================
+        // 11. REAL-TIME TELEMETRY TICKER & DUAL-TRACE CANVAS CHART
+        // ============================================================================
+        const chartHistory = {
+            supply: Array(40).fill(17.6),
+            watts: Array(40).fill(740)
+        };
+
+        function updateTelemetrySimulation() {
+            twinState.uptimeSec++;
+            const d = Math.floor(twinState.uptimeSec / 86400);
+            const h = String(Math.floor((twinState.uptimeSec % 86400) / 3600)).padStart(2, '0');
+            const m = String(Math.floor((twinState.uptimeSec % 3600) / 60)).padStart(2, '0');
+            const s = String(twinState.uptimeSec % 60).padStart(2, '0');
+            document.getElementById('hudUptime').textContent = `${d}d ${h}:${m}:${s}`;
+
+            if (!twinState.power) {
+                twinState.supplyTemp += (twinState.returnTemp - twinState.supplyTemp) * 0.15;
+                twinState.watts = 4; // ESP32-C3 + Standby PCB draw
+                twinState.amps = 0.02;
+                twinState.vibration = 0.05;
+            } else {
+                const targetSupply = twinState.activeFault === 'FREON_LEAK'
+                    ? twinState.returnTemp - 2.4
+                    : Math.max(13.5, twinState.setpoint - 4.4);
+
+                twinState.supplyTemp += (targetSupply - twinState.supplyTemp) * 0.2 + (Math.random() - 0.5) * 0.15;
+                twinState.returnTemp = 28.2 + (Math.random() - 0.5) * 0.2;
+
+                if (twinState.activeFault === 'FILTER_CLOG') {
+                    twinState.filterFouling = 89;
+                    twinState.vibration = 3.85 + Math.random() * 0.4;
+                    twinState.watts = 960 + Math.floor(Math.random() * 25);
+                } else if (twinState.activeFault === 'DRAIN_BLOCK') {
+                    twinState.drainLevel = 96;
+                    twinState.watts = 780 + Math.floor(Math.random() * 15);
+                } else {
+                    twinState.filterFouling = 14;
+                    twinState.drainLevel = 22;
+                    twinState.vibration = 1.10 + (Math.random() - 0.5) * 0.12;
+                    const ecoFactor = twinState.enthalpyAI ? 0.84 : 1.0;
+                    twinState.watts = Math.round((790 + (26 - twinState.setpoint) * 38) * ecoFactor + (Math.random() - 0.5) * 14);
+                }
+                twinState.volts = 221.0 + (Math.random() - 0.5) * 1.2;
+                twinState.amps = +(twinState.watts / twinState.volts).toFixed(2);
+            }
+
+            twinState.deltaT = Math.max(0, twinState.returnTemp - twinState.supplyTemp);
+
+            // Update DOM Metrics
+            document.getElementById('telReturnTemp').textContent = `${twinState.returnTemp.toFixed(1)}°C`;
+            document.getElementById('telSupplyTemp').textContent = `${twinState.supplyTemp.toFixed(1)}°C`;
+            document.getElementById('telDeltaT').textContent = `${twinState.deltaT.toFixed(1)}°C`;
+            document.getElementById('telWatts').textContent = `${twinState.watts} W`;
+            document.getElementById('telAmps').textContent = `${twinState.amps.toFixed(2)} A`;
+            document.getElementById('telVolts').textContent = `${twinState.volts.toFixed(1)} V`;
+            document.getElementById('telVibration').textContent = `${twinState.vibration.toFixed(2)} mm/s`;
+
+            // Delta-T Health Card Styling
+            const dtStatus = document.getElementById('telDeltaStatus');
+            const dtCard = document.getElementById('deltaTCard');
+            if (twinState.deltaT >= 8.0) {
+                dtStatus.textContent = 'OPTIMAL SPLIT';
+                dtStatus.className = 'text-[10px] font-mono text-emerald-400';
+                dtCard.className = 'bg-slate-900/90 border border-emerald-500/40 rounded-xl p-2.5';
+            } else {
+                dtStatus.textContent = 'LOW ΔT WARN';
+                dtStatus.className = 'text-[10px] font-mono text-rose-400';
+                dtCard.className = 'bg-slate-900/90 border border-rose-500/50 rounded-xl p-2.5';
+            }
+
+            // Filter & Drain Progress Bars
+            document.getElementById('barFilterVal').textContent = `${twinState.filterFouling}% (${twinState.filterFouling > 60 ? 'CLOGGED' : 'CLEAN'})`;
+            document.getElementById('barFilterFill').style.width = `${twinState.filterFouling}%`;
+            document.getElementById('barFilterFill').className = `h-full transition-all duration-300 ${twinState.filterFouling > 60 ? 'bg-amber-400' : 'bg-emerald-400'}`;
+
+            document.getElementById('barDrainVal').textContent = `${twinState.drainLevel}% (${twinState.drainLevel > 80 ? 'OVERFLOW' : 'NORMAL'})`;
+            document.getElementById('barDrainFill').style.width = `${twinState.drainLevel}%`;
+            document.getElementById('barDrainFill').className = `h-full transition-all duration-300 ${twinState.drainLevel > 80 ? 'bg-rose-500' : 'bg-cyan-400'}`;
+
+            // Push to Chart History
+            chartHistory.supply.push(twinState.supplyTemp);
+            chartHistory.supply.shift();
+            chartHistory.watts.push(twinState.watts);
+            chartHistory.watts.shift();
+            drawTelemetryChart();
+        }
+
+        function drawTelemetryChart() {
+            const canvas = document.getElementById('telemetryChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.clientWidth * window.devicePixelRatio;
+            const h = canvas.height = canvas.clientHeight * window.devicePixelRatio;
+            ctx.clearRect(0, 0, w, h);
+
+            // Subtle horizontal grid lines
+            ctx.strokeStyle = 'rgba(30, 41, 59, 0.7)';
+            ctx.lineWidth = 1;
+            for (let i = 1; i < 4; i++) {
+                const y = (h / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+
+            // Plot Watts Trace (Amber)
+            ctx.strokeStyle = '#F59E0B';
+            ctx.lineWidth = 2 * window.devicePixelRatio;
+            ctx.beginPath();
+            chartHistory.watts.forEach((val, i) => {
+                const x = (i / (chartHistory.watts.length - 1)) * w;
+                const y = h - ((val / 1200) * (h * 0.85) + h * 0.05);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+
+            // Plot Supply Temp Trace (Cyan)
+            ctx.strokeStyle = '#06B6D4';
+            ctx.lineWidth = 2.2 * window.devicePixelRatio;
+            ctx.beginPath();
+            chartHistory.supply.forEach((val, i) => {
+                const x = (i / (chartHistory.supply.length - 1)) * w;
+                const y = h - (((val - 10) / 22) * (h * 0.85) + h * 0.05);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+        }
+
+        // ============================================================================
+        // 12. ESP32-C3 PROVISIONING MODAL, IR SCOPE & FIRMWARE GENERATOR
+        // ============================================================================
+        function openProvisionModal() {
+            document.getElementById('provisionModal').classList.remove('hidden');
+            generateFirmwareHeaderCode();
+            drawIROscilloscope();
+        }
+
+        function closeProvisionModal() {
+            document.getElementById('provisionModal').classList.add('hidden');
+        }
+
+        function switchModalTab(tabId) {
+            ['pinout', 'irlearn', 'network', 'firmware'].forEach(t => {
+                document.getElementById(`tabContent-${t}`).classList.toggle('hidden', t !== tabId);
+                const btn = document.getElementById(`tabBtn-${t}`);
+                btn.className = t === tabId
+                    ? 'modal-tab-btn px-3.5 py-2 text-xs font-mono font-bold border-b-2 border-emerald-400 text-emerald-400'
+                    : 'modal-tab-btn px-3.5 py-2 text-xs font-mono font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200';
+            });
+            if (tabId === 'irlearn') drawIROscilloscope();
+            if (tabId === 'firmware') generateFirmwareHeaderCode();
+        }
+
+        function drawIROscilloscope() {
+            const canvas = document.getElementById('irScopeCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width = canvas.clientWidth * window.devicePixelRatio;
+            const h = canvas.height = canvas.clientHeight * window.devicePixelRatio;
+            ctx.clearRect(0, 0, w, h);
+
+            ctx.strokeStyle = '#10B981';
+            ctx.lineWidth = 2 * window.devicePixelRatio;
+            ctx.beginPath();
+
+            let x = 10;
+            const highY = h * 0.25;
+            const lowY = h * 0.78;
+            ctx.moveTo(0, lowY);
+
+            while (x < w - 10) {
+                const pulseW = (Math.random() > 0.45 ? 18 : 9) * window.devicePixelRatio;
+                const gapW = (Math.random() > 0.5 ? 14 : 7) * window.devicePixelRatio;
+                ctx.lineTo(x, lowY);
+                ctx.lineTo(x, highY);
+                ctx.lineTo(x + pulseW, highY);
+                ctx.lineTo(x + pulseW, lowY);
+                x += pulseW + gapW;
+            }
+            ctx.stroke();
+        }
+
+        function triggerIRLearningCapture() {
+            drawIROscilloscope();
+            const vendors = [
+                { name: 'DAIKIN_ARC480A (152-Bit)', hex: '0x11DA2700C50000D711DA270042000054' },
+                { name: 'PANASONIC_CS_INVERTER (216-Bit)', hex: '0x0220E004000000060220E00400312C80' },
+                { name: 'MITSUBISHI_ELECTRIC_CN105 (144-Bit)', hex: '0x23CB26010020080B3040000000008A' }
+            ];
+            const pick = vendors[Math.floor(Math.random() * vendors.length)];
+            document.getElementById('irVendorText').textContent = pick.name;
+            document.getElementById('irHexDecoded').textContent = pick.hex;
+            document.getElementById('modalStatusMsg').textContent = `IR CAPTURE OK: Saved ${pick.name} to LittleFS`;
+        }
+
+        function pushOTAConfig() {
+            const broker = document.getElementById('cfgBroker').value;
+            document.getElementById('modalStatusMsg').textContent = `OTA RPC ACK: Config synced to ESP32-C3 (${broker})`;
+            logProtocolCommand('OTA_CONFIG_SYNC_ACK');
+        }
+
+        function generateFirmwareHeaderCode() {
+            const ssid = document.getElementById('cfgSsid').value;
+            const broker = document.getElementById('cfgBroker').value;
+            const slaveId = document.getElementById('cfgSlaveId').value;
+            const wdt = document.getElementById('cfgWdt').value;
+
+            const code = `/**
+ * AERO-TWIN v4.2 // Auto-Generated ESP32-C3 SuperMini Firmware Config
+ * Target MCU: ESP32-C3 (RISC-V Single-Core @ 160MHz, 4MB Flash, LittleFS)
+ */
+#pragma once
+#include <Arduino.h>
+
+#define NODE_MAC_ID             "EC:DA:3B:91:04:F2"
+#define AC_ARCHITECTURE_PROFILE "${twinState.acModel.toUpperCase()}"
+#define ACTIVE_HW_BRIDGE        "${twinState.protocol}"
+
+// --- ESP32-C3 SuperMini Hardware Pin Multiplexing ---
+#define PIN_I2C_SDA             0   // MPU6050 MEMS Vibration Sensor SDA
+#define PIN_I2C_SCL             1   // MPU6050 MEMS Vibration Sensor SCL
+#define PIN_ONEWIRE_DELTA_T     2   // Dual DS18B20 Return & Supply Probes
+#define PIN_ADC_CT_CLAMP        3   // ADC1_CH3 SCT-013 Non-Invasive Current
+#define PIN_RMT_IR_TX           4   // 940nm MOSFET Dual IR Blaster (38kHz)
+#define PIN_RMT_IR_RX           5   // TSOP38238 Universal Learning Receiver
+#define PIN_RS485_RO            6   // MAX485 Modbus RTU Receiver Output
+#define PIN_RS485_DI            7   // MAX485 Modbus RTU Driver Input
+#define PIN_STATUS_LED          8   // Onboard Blue Status LED (Active Low)
+#define PIN_CONDENSATE_FLOAT    10  // Capacitive Drain Overflow Sensor
+
+// --- Telemetry & Sustainable PID Parameters ---
+#define WIFI_SSID               "${ssid}"
+#define MQTT_BROKER_WSS         "${broker}"
+#define MODBUS_SLAVE_ID         ${slaveId}
+#define TWDT_TIMEOUT_SECONDS    ${wdt}
+#define ENTHALPY_ECO_AI_ENABLED ${twinState.enthalpyAI ? 'true' : 'false'}
+#define DEFAULT_SETPOINT_CELSIUS ${twinState.setpoint.toFixed(1)}f`;
+
+            document.getElementById('firmwareCodeBlock').textContent = code;
+        }
+
+        function copyFirmwareCode() {
+            const code = document.getElementById('firmwareCodeBlock').textContent;
+            const tempArea = document.createElement('textarea');
+            tempArea.value = code;
+            document.body.appendChild(tempArea);
+            tempArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempArea);
+
+            const btn = document.getElementById('copyBtnText');
+            btn.textContent = 'Copied to Clipboard!';
+            setTimeout(() => { btn.textContent = 'Copy Header'; }, 2000);
+        }
+
+        // Mobile Drawer Controller
+        function toggleMobileDrawer(side) {
+            const left = document.getElementById('leftDrawer');
+            const right = document.getElementById('rightDrawer');
+            if (side === 'left') {
+                left.classList.toggle('-translate-x-full');
+                right.classList.add('translate-x-full');
+            } else {
+                right.classList.toggle('translate-x-full');
+                left.classList.add('-translate-x-full');
+            }
+        }
+
+        // ============================================================================
+        // 13. BOOTSTRAP APPLICATION ON WINDOW LOAD
+        // ============================================================================
+        window.onload = function () {
+            lucide.createIcons();
+            initThreeJS();
+            toggleEnthalpyOptimizer(true);
+            animateLoop();
+            setInterval(updateTelemetrySimulation, 1200);
+        };
+    </script>
+</body>
+</html>
   <script src="js/digital-twin-3d.js"></script>
   <script src="js/app.js"></script>
 </body>
